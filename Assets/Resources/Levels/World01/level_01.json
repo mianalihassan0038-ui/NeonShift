@@ -1,0 +1,37 @@
+{
+  "levelId": 1,
+  "worldId": 1,
+  "gridWidth": 5,
+  "gridHeight": 5,
+  "maxMoves": 9,
+  "hint": "Swipe. Light follows your swipe, Shadow moves the opposite way.",
+  "light": {
+    "start": {
+      "x": 0,
+      "y": 2
+    },
+    "exit": {
+      "x": 4,
+      "y": 2
+    },
+    "walls": []
+  },
+  "shadow": {
+    "start": {
+      "x": 4,
+      "y": 2
+    },
+    "exit": {
+      "x": 0,
+      "y": 2
+    },
+    "walls": []
+  },
+  "energyNodes": [],
+  "starThresholds": {
+    "threeStarsMaxMoves": 4,
+    "twoStarsMaxMoves": 6,
+    "oneStarMaxMoves": 9
+  },
+  "_solution": "RRRR"
+}

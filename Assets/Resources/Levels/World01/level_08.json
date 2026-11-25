@@ -1,0 +1,71 @@
+{
+  "levelId": 8,
+  "worldId": 1,
+  "gridWidth": 5,
+  "gridHeight": 5,
+  "maxMoves": 19,
+  "hint": "",
+  "light": {
+    "start": {
+      "x": 2,
+      "y": 0
+    },
+    "exit": {
+      "x": 4,
+      "y": 0
+    },
+    "walls": [
+      {
+        "x": 2,
+        "y": 1
+      },
+      {
+        "x": 2,
+        "y": 2
+      },
+      {
+        "x": 2,
+        "y": 3
+      },
+      {
+        "x": 3,
+        "y": 0
+      },
+      {
+        "x": 4,
+        "y": 2
+      }
+    ]
+  },
+  "shadow": {
+    "start": {
+      "x": 2,
+      "y": 4
+    },
+    "exit": {
+      "x": 0,
+      "y": 4
+    },
+    "walls": [
+      {
+        "x": 1,
+        "y": 4
+      },
+      {
+        "x": 2,
+        "y": 1
+      },
+      {
+        "x": 3,
+        "y": 2
+      }
+    ]
+  },
+  "energyNodes": [],
+  "starThresholds": {
+    "threeStarsMaxMoves": 14,
+    "twoStarsMaxMoves": 16,
+    "oneStarMaxMoves": 19
+  },
+  "_solution": "LDLDDDRRRUUURU"
+}
