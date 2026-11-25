@@ -4,8 +4,9 @@ using UnityEngine;
 namespace NeonShift
 {
     /// <summary>
-    /// Entry point for Build 001. Creates the camera, both boards, both tokens and the UI in code,
-    /// so it runs from any scene (including an empty one). Press Play and swipe / use arrow keys.
+    /// Entry point. Creates the camera, menus, both boards, both tokens and the UI in code,
+    /// so it runs from any scene (including an empty one). Screens (main menu, level select,
+    /// gameplay) are child objects that are switched on and off.
     /// </summary>
     public sealed class GameManager : MonoBehaviour
     {
@@ -17,6 +18,7 @@ namespace NeonShift
         public static GameManager Instance { get; private set; }
 
         public GameState State { get; private set; }
+        public AppScreen CurrentScreen { get; private set; }
 
         Camera cam;
         Vector2Int lastScreen;
@@ -27,6 +29,9 @@ namespace NeonShift
         MovementManager movement;
         SwipeInput swipe;
         GameplayUI ui;
+        MainMenuUI mainMenu;
+        LevelSelectUI levelSelect;
+        GameObject gameplayRoot;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AutoStart()
@@ -46,20 +51,39 @@ namespace NeonShift
 
             SetupCamera();
 
+            gameplayRoot = new GameObject("Gameplay");
+            gameplayRoot.transform.SetParent(transform, false);
+
+            mainMenu = new GameObject("MainMenu").AddComponent<MainMenuUI>();
+            mainMenu.transform.SetParent(transform, false);
+            mainMenu.Build();
+            mainMenu.PlayPressed = () => StartLevel(levels.CurrentIndex);
+            mainMenu.LevelsPressed = () => ShowScreen(AppScreen.LevelSelect);
+
+            levelSelect = new GameObject("LevelSelect").AddComponent<LevelSelectUI>();
+            levelSelect.transform.SetParent(transform, false);
+            levelSelect.Build();
+            levelSelect.LevelChosen = StartLevel;
+            levelSelect.BackPressed = () => ShowScreen(AppScreen.MainMenu);
+
             lightBoard = new GameObject("LightBoard").AddComponent<BoardRenderer>();
-            lightBoard.transform.SetParent(transform, false);
+            lightBoard.transform.SetParent(gameplayRoot.transform, false);
             lightBoard.transform.localPosition = new Vector3(0f, LightBoardY, 0f);
             shadowBoard = new GameObject("ShadowBoard").AddComponent<BoardRenderer>();
-            shadowBoard.transform.SetParent(transform, false);
+            shadowBoard.transform.SetParent(gameplayRoot.transform, false);
             shadowBoard.transform.localPosition = new Vector3(0f, ShadowBoardY, 0f);
 
             ui = new GameObject("GameplayUI").AddComponent<GameplayUI>();
-            ui.transform.SetParent(transform, false);
+            ui.transform.SetParent(gameplayRoot.transform, false);
             ui.Build(LightBoardY + LabelGap, ShadowBoardY + LabelGap);
             ui.NextPressed = NextLevel;
             ui.ReplayPressed = RestartLevel;
             ui.RestartPressed = RestartLevel;
             ui.UndoPressed = UndoMove;
+            ui.PausePressed = Pause;
+            ui.ResumePressed = Resume;
+            ui.LevelsPressed = () => ShowScreen(AppScreen.LevelSelect);
+            ui.MenuPressed = () => ShowScreen(AppScreen.MainMenu);
 
             movement = gameObject.AddComponent<MovementManager>();
             movement.MoveFinished += OnMoveFinished;
@@ -74,7 +98,7 @@ namespace NeonShift
                 Debug.LogError("NEON SHIFT: no levels found in Assets/Resources/Levels");
                 return;
             }
-            LoadCurrentLevel();
+            ShowScreen(AppScreen.MainMenu);
         }
 
         void OnDestroy()
@@ -112,14 +136,63 @@ namespace NeonShift
         {
             if (Screen.width != lastScreen.x || Screen.height != lastScreen.y) FitCamera();
 
+            // Android back button / Escape: pause in game, go back in menus.
+            if (KeyDown(KeyCode.Escape)) Back();
+
+            if (CurrentScreen != AppScreen.Gameplay) return;
             // Keyboard shortcuts: Z / Backspace = undo, R = restart. N = skip level (Editor only).
             if (KeyDown(KeyCode.Z) || KeyDown(KeyCode.Backspace)) UndoMove();
             if (KeyDown(KeyCode.R)) RestartLevel();
 #if UNITY_EDITOR
             if (KeyDown(KeyCode.N)) NextLevel();
 #endif
-            // Android back button / Escape also undoes.
-            if (KeyDown(KeyCode.Escape)) UndoMove();
+        }
+
+        void Back()
+        {
+            switch (CurrentScreen)
+            {
+                case AppScreen.LevelSelect: ShowScreen(AppScreen.MainMenu); break;
+                case AppScreen.Gameplay:
+                    if (State == GameState.Paused) Resume();
+                    else Pause();
+                    break;
+            }
+        }
+
+        public void ShowScreen(AppScreen screen)
+        {
+            StopAllCoroutines();
+            if (movement != null && puzzle != null) movement.Bind(puzzle, lightBoard, shadowBoard, lightToken, shadowToken); // cancel any animation
+            CurrentScreen = screen;
+            mainMenu.gameObject.SetActive(screen == AppScreen.MainMenu);
+            levelSelect.gameObject.SetActive(screen == AppScreen.LevelSelect);
+            gameplayRoot.SetActive(screen == AppScreen.Gameplay);
+
+            if (screen == AppScreen.MainMenu) mainMenu.Show(levels.TotalStars, levels.Count * 3, levels.Current);
+            if (screen == AppScreen.LevelSelect) levelSelect.Show(levels);
+            if (screen != AppScreen.Gameplay) State = GameState.Menu;
+        }
+
+        public void StartLevel(int index)
+        {
+            levels.Select(index);
+            ShowScreen(AppScreen.Gameplay);
+            LoadCurrentLevel();
+        }
+
+        public void Pause()
+        {
+            if (CurrentScreen != AppScreen.Gameplay || State != GameState.Playing || movement.IsBusy) return;
+            State = GameState.Paused;
+            ui.ShowPause();
+        }
+
+        public void Resume()
+        {
+            if (State != GameState.Paused) return;
+            ui.HidePanels();
+            State = GameState.Playing;
         }
 
         static bool KeyDown(KeyCode key)
@@ -189,13 +262,15 @@ namespace NeonShift
             yield return StartCoroutine(shadowToken.Celebrate(0.4f));
             int stars = StarManager.Calculate(puzzle.Level, puzzle.MoveCount);
             SaveManager.RecordStars(puzzle.Level, stars);
+            levels.MarkCurrentCompleted();
             ui.ShowVictory(puzzle.MoveCount, stars, puzzle.Level.starThresholds.threeStarsMaxMoves, levels.IsLastLevel);
         }
 
         /// <summary>Steps back one move. Also works from the failure panel.</summary>
         public void UndoMove()
         {
-            if (puzzle == null || movement.IsBusy || State == GameState.Victory) return;
+            if (puzzle == null || movement.IsBusy) return;
+            if (State != GameState.Playing && State != GameState.Failed) return;
             if (!puzzle.Undo()) return;
             ui.HidePanels();
             movement.SyncTokens();
@@ -208,18 +283,25 @@ namespace NeonShift
             if (State == GameState.Loading || movement.IsBusy) return;
             Vector3 world = cam.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, -cam.transform.position.z));
             world.z = 0f;
-            ui.HandleTap(world);
+            switch (CurrentScreen)
+            {
+                case AppScreen.MainMenu: mainMenu.HandleTap(world); break;
+                case AppScreen.LevelSelect: levelSelect.HandleTap(world); break;
+                default: ui.HandleTap(world); break;
+            }
         }
 
         public void NextLevel()
         {
             StopAllCoroutines();
+            if (levels.IsLastLevel) { ShowScreen(AppScreen.LevelSelect); return; }
             levels.Advance();
             LoadCurrentLevel();
         }
 
         public void RestartLevel()
         {
+            if (CurrentScreen != AppScreen.Gameplay || puzzle == null) return;
             StopAllCoroutines();
             LoadCurrentLevel();
         }

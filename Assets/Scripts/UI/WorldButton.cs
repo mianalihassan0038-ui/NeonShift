@@ -43,12 +43,28 @@ namespace NeonShift
         }
 
         /// <summary>Disabled buttons are dimmed and ignore taps.</summary>
+        public TextMesh Label { get { return label; } }
+
         public void SetEnabled(bool enabled)
         {
             interactable = enabled;
             Color c = enabled ? accent : NeonTheme.WithAlpha(accent, 0.25f);
             border.color = c;
             label.color = c;
+        }
+
+        /// <summary>Clicks the first enabled, visible button under the point. Returns true if one was hit.</summary>
+        public static bool TapAny(System.Collections.Generic.IList<WorldButton> buttons, Vector3 worldPoint)
+        {
+            foreach (var b in buttons)
+            {
+                if (b != null && b.Contains(worldPoint))
+                {
+                    if (b.Clicked != null) b.Clicked();
+                    return true;
+                }
+            }
+            return false;
         }
 
         public bool Contains(Vector3 worldPoint)

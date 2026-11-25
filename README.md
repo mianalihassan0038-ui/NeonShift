@@ -10,7 +10,7 @@ If either one would hit a wall or a board edge, **neither** moves. Get both onto
 
 _The image is a layout preview rendered outside Unity, not an in-game screenshot._
 
-## Status: Build 002 (puzzle tools)
+## Status: Build 003 (menus and flow)
 
 Build 001, the core loop:
 
@@ -30,7 +30,17 @@ Build 002, the puzzle tools:
 
 Not added yet: energy nodes. The plan says to compare the game with and without them first, so that is still an open decision.
 
-Next up (Build 003): main menu, level select with stars, pause panel, and tutorial prompts.
+Build 003, menus and flow:
+
+- **Main menu**: NEON / SHIFT title, **PLAY** (continues your current level), **LEVELS**, and your total stars.
+- **Level select**: a grid of World 01 levels. Locked levels are dimmed, completed ones show their best stars, and the current one is highlighted. Finishing a level unlocks the next.
+- **Pause**: the `II` button (or Android back / Escape) opens Resume, Restart, Levels and Menu.
+- Teaching hints under the boards on levels 1 to 4.
+- After the last level, **LEVELS** takes you back to level select.
+
+All screens live in the one Gameplay scene and are switched on and off in code, instead of the separate Boot / MainMenu / LevelSelect scenes in the plan. This keeps the setup to a single empty scene.
+
+Next up (polish): sound and music with a settings screen, haptics, more levels and worlds, and testing on real phones.
 
 ## Open it in Unity
 
@@ -61,7 +71,7 @@ Assets/
     Movement/  MovementManager, CollisionChecker
     Puzzle/    PuzzleState (the rules), PuzzleSolver (shortest solution), StarManager
     History/   UndoManager (state snapshots)
-    UI/        GameplayUI, WorldButton, NeonTheme, NeonSprites
+    UI/        GameplayUI, MainMenuUI, LevelSelectUI, WorldButton, NeonTheme, NeonSprites
     Save/      SaveManager
 Tests/CoreTests.cs        rule tests that run without Unity
 tools/run-core-tests.sh   compiles and runs the tests with Mono
