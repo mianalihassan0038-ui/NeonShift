@@ -106,6 +106,70 @@ static class CoreTests
         Check(state.LightPos == level.light.exit && !state.IsSolved, "only Light on exit is not a win");
     }
 
+    static void TestUndo()
+    {
+        var state = new PuzzleState(OpenLevel());
+        Check(!state.CanUndo && !state.Undo(), "nothing to undo at start");
+        state.TryMove(Direction.Up);
+        state.TryMove(Direction.Right); // blocked moves must not create history
+        var level = OpenLevel();
+        level.light.walls.Add(P(3, 1));
+        state = new PuzzleState(level);
+        state.TryMove(Direction.Up);      // Light (2,1), Shadow (2,3)
+        state.TryMove(Direction.Right);   // blocked by wall (3,1)
+        Check(state.MoveCount == 1, "blocked move ignored before undo");
+        Check(state.Undo(), "undo works");
+        Check(state.LightPos == P(2, 2) && state.ShadowPos == P(2, 2) && state.MoveCount == 0, "undo restores both and the counter");
+        Check(!state.Undo(), "blocked move left nothing extra to undo");
+
+        state = new PuzzleState(OpenLevel());
+        state.TryMove(Direction.Right);
+        state.TryMove(Direction.Right);
+        Check(state.IsSolved, "solved before undo");
+        Check(state.Undo() && !state.IsSolved && state.MoveCount == 1, "undo after a win reopens the level");
+        state.TryMove(Direction.Down);
+        state.Reset();
+        Check(!state.CanUndo && state.MoveCount == 0 && state.LightPos == P(2, 2), "restart clears history");
+    }
+
+    static void TestMoveLimit()
+    {
+        var level = OpenLevel();
+        level.maxMoves = 3;
+        var state = new PuzzleState(level);
+        state.TryMove(Direction.Up);
+        state.TryMove(Direction.Down);
+        Check(!state.IsFailed && state.MovesLeft == 1, "one move left");
+        var outcome = state.TryMove(Direction.Up);
+        Check(outcome.failedNow && state.IsFailed, "last move without solving fails");
+        Check(state.TryMove(Direction.Down).result == MoveResult.OutOfMoves && state.MoveCount == 3, "no moves after failure");
+        Check(state.Undo() && !state.IsFailed, "undo leaves the failed state");
+
+        level = OpenLevel();
+        level.maxMoves = 2;
+        state = new PuzzleState(level);
+        state.TryMove(Direction.Right);
+        outcome = state.TryMove(Direction.Right);
+        Check(outcome.solvedNow && !outcome.failedNow && !state.IsFailed, "solving on the last allowed move is a win");
+
+        level = OpenLevel();
+        level.maxMoves = 0;
+        state = new PuzzleState(level);
+        for (int i = 0; i < 50; i++) state.TryMove(i % 2 == 0 ? Direction.Up : Direction.Down);
+        Check(!state.IsFailed, "maxMoves 0 means no limit");
+    }
+
+    static void TestStars()
+    {
+        var level = OpenLevel();
+        level.starThresholds.threeStarsMaxMoves = 8;
+        level.starThresholds.twoStarsMaxMoves = 10;
+        level.starThresholds.oneStarMaxMoves = 12;
+        Check(StarManager.Calculate(level, 6) == 3 && StarManager.Calculate(level, 8) == 3, "3 stars up to 8");
+        Check(StarManager.Calculate(level, 9) == 2 && StarManager.Calculate(level, 10) == 2, "2 stars at 9-10");
+        Check(StarManager.Calculate(level, 11) == 1 && StarManager.Calculate(level, 20) == 1, "otherwise 1 star");
+    }
+
     static void TestShippedLevels(string folder)
     {
         var files = Directory.GetFiles(folder, "*.json", SearchOption.AllDirectories);
@@ -134,6 +198,7 @@ static class CoreTests
             Check(state.IsSolved && state.MoveCount == solution.Count, name + " solution replays");
             Check(level.starThresholds.threeStarsMaxMoves == solution.Count,
                 name + " 3-star threshold equals best solution (" + solution.Count + ")");
+            Check(level.maxMoves == 0 || level.maxMoves >= solution.Count, name + " move limit allows the best solution");
             Console.WriteLine("  " + name + ": best " + solution.Count + " moves");
         }
     }
@@ -146,6 +211,9 @@ static class CoreTests
         TestEdges();
         TestCounterAndWin();
         TestOnlyOneOnExitIsNotWin();
+        TestUndo();
+        TestMoveLimit();
+        TestStars();
         TestShippedLevels(args.Length > 0 ? args[0] : "Assets/Resources/Levels");
         Console.WriteLine(passed + " passed, " + failures + " failed");
         return failures == 0 ? 0 : 1;

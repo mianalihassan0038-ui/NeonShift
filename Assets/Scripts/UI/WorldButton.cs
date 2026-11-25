@@ -8,6 +8,10 @@ namespace NeonShift
     {
         public Action Clicked;
         Vector2 size;
+        bool interactable = true;
+        SpriteRenderer border;
+        TextMesh label;
+        Color accent;
 
         public static WorldButton Create(Transform parent, string label, Vector3 localPos, Vector2 size, Color accent, int order)
         {
@@ -17,7 +21,9 @@ namespace NeonShift
             var button = go.AddComponent<WorldButton>();
             button.size = size;
 
+            button.accent = accent;
             var border = new GameObject("Border").AddComponent<SpriteRenderer>();
+            button.border = border;
             border.transform.SetParent(go.transform, false);
             border.transform.localScale = new Vector3(size.x, size.y, 1f);
             border.sprite = NeonSprites.RoundedFrame;
@@ -31,13 +37,23 @@ namespace NeonShift
             fill.color = NeonTheme.Panel;
             fill.sortingOrder = order + 1;
 
-            GameplayUI.MakeText("Label", go.transform, Vector3.zero, size.y * 0.42f, accent, TextAnchor.MiddleCenter, order + 2).text = label;
+            button.label = GameplayUI.MakeText("Label", go.transform, Vector3.zero, size.y * 0.42f, accent, TextAnchor.MiddleCenter, order + 2);
+            button.label.text = label;
             return button;
+        }
+
+        /// <summary>Disabled buttons are dimmed and ignore taps.</summary>
+        public void SetEnabled(bool enabled)
+        {
+            interactable = enabled;
+            Color c = enabled ? accent : NeonTheme.WithAlpha(accent, 0.25f);
+            border.color = c;
+            label.color = c;
         }
 
         public bool Contains(Vector3 worldPoint)
         {
-            if (!gameObject.activeInHierarchy) return false;
+            if (!interactable || !gameObject.activeInHierarchy) return false;
             Vector3 local = worldPoint - transform.position;
             return Mathf.Abs(local.x) <= size.x * 0.5f && Mathf.Abs(local.y) <= size.y * 0.5f;
         }

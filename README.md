@@ -10,26 +10,34 @@ If either one would hit a wall or a board edge, **neither** moves. Get both onto
 
 _The image is a layout preview rendered outside Unity, not an in-game screenshot._
 
-## Status: Build 001 (core loop)
+## Status: Build 002 (puzzle tools)
 
-Done, following the game plan:
+Build 001, the core loop:
 
 - Two synchronized 5×5 boards, stacked for portrait.
 - Swipe input (touch and mouse) plus arrow keys / WASD in the Editor. One gesture is one move; a second finger cancels it; input is locked while tokens animate.
 - Paired movement: both destinations are validated first, then both move together.
 - Wall and edge collision, with a red "bump" showing which character was blocked.
 - Move counter (rejected swipes don't count) and win detection (both on their exits).
-- Level-complete panel with Next / Replay, and progress saved locally.
 - 8 World 01 levels (4 to 14 moves), each proven solvable by an automated solver.
 
-Next up (Build 002): undo, restart button, move limits, star rating, and deciding on energy nodes.
+Build 002, the puzzle tools:
+
+- **Undo**: restores both characters and the move count, one step at a time (button, `Z`, `Backspace`, or Android back).
+- **Restart**: resets the whole level (button or `R`).
+- **Move limit**: each level has `maxMoves`. The counter shows `MOVES 3/11` and turns yellow near the end. Running out shows an **Out of moves** panel with Undo and Retry.
+- **Stars**: 1 to 3 stars from each level's thresholds, shown on the level-complete panel. The best rating per level is saved.
+
+Not added yet: energy nodes. The plan says to compare the game with and without them first, so that is still an open decision.
+
+Next up (Build 003): main menu, level select with stars, pause panel, and tutorial prompts.
 
 ## Open it in Unity
 
 1. Install **Unity Hub** and a **Unity 6** editor with **Android Build Support**.
 2. Clone this repo, then in Unity Hub choose **Add → Add project from disk** and pick the `NeonShift` folder. If Hub asks for an editor version, pick your Unity 6 version.
 3. On first open, the project sets portrait Player Settings and creates `Assets/Scenes/Gameplay.unity` automatically. (You can also use the **NEON SHIFT** menu.)
-4. Press **Play**. Swipe with the mouse or use the arrow keys. In the Editor, `R` restarts and `N` skips a level.
+4. Press **Play**. Swipe with the mouse or use the arrow keys. `Z` undoes, `R` restarts, and in the Editor `N` skips a level.
 5. After the first open, commit the `.meta` files Unity creates.
 
 Everything (camera, boards, tokens, text) is created in code by `GameManager`, so the scene can stay empty and the prototype needs no art files.
@@ -51,7 +59,8 @@ Assets/
     Player/    PlayerController (token visuals and animation)
     Input/     SwipeInput
     Movement/  MovementManager, CollisionChecker
-    Puzzle/    PuzzleState (the rules), PuzzleSolver (shortest solution)
+    Puzzle/    PuzzleState (the rules), PuzzleSolver (shortest solution), StarManager
+    History/   UndoManager (state snapshots)
     UI/        GameplayUI, WorldButton, NeonTheme, NeonSprites
     Save/      SaveManager
 Tests/CoreTests.cs        rule tests that run without Unity
@@ -59,7 +68,7 @@ tools/run-core-tests.sh   compiles and runs the tests with Mono
 tools/generate_levels.py  helper that searches for new levels
 ```
 
-The rule code (`GridPos`, `Direction`, `LevelData`, `BoardState`, `CollisionChecker`, `PuzzleState`, `PuzzleSolver`) does not use `UnityEngine`, so it can be tested anywhere.
+The rule code (`GridPos`, `Direction`, `LevelData`, `BoardState`, `CollisionChecker`, `PuzzleState`, `PuzzleSolver`, `StarManager`, `UndoManager`) does not use `UnityEngine`, so it can be tested anywhere.
 
 ## Level format
 
@@ -80,7 +89,7 @@ Coordinates are `x` = column (0 = left) and `y` = row (**0 = top**).
 }
 ```
 
-`maxMoves` and `starThresholds` are stored for Build 002 and not enforced yet. `_solution` is a known shortest solution kept for QA; the game ignores it.
+`maxMoves` is the move limit (0 = no limit). `starThresholds` sets the 3/2/1 star cut-offs. `_solution` is a known shortest solution kept for QA; the game ignores it.
 
 **Design note:** with the "both or neither" rule, Light's total movement is always the exact mirror of Shadow's. So in every level, `light.exit − light.start` must equal `shadow.start − shadow.exit`, otherwise it can't be solved. The tests check every level.
 
@@ -91,7 +100,7 @@ sudo apt install mono-devel   # once
 tools/run-core-tests.sh
 ```
 
-They check all four directions, Light-blocked and Shadow-blocked cases, board edges, the move counter, the win rule, and that every shipped level is valid and solvable.
+They check all four directions, Light-blocked and Shadow-blocked cases, board edges, the move counter, the win rule, undo, restart, the move limit, stars, and that every shipped level is valid and solvable.
 
 ## Make new levels
 

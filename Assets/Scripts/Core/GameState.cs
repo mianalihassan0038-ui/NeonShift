@@ -5,6 +5,7 @@ namespace NeonShift
         Loading,
         Playing,
         Animating,
-        Victory
+        Victory,
+        Failed
     }
 }

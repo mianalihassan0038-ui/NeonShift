@@ -11,13 +11,14 @@ namespace NeonShift
     {
         const int Size = 128;
 
-        static Sprite roundedTile, roundedFrame, circle, ring, glow, square;
+        static Sprite roundedTile, roundedFrame, circle, ring, glow, square, star;
 
         public static Sprite RoundedTile { get { return roundedTile ?? (roundedTile = Make("RoundedTile", RoundedRect(0.22f, 0f))); } }
         public static Sprite RoundedFrame { get { return roundedFrame ?? (roundedFrame = Make("RoundedFrame", RoundedRect(0.08f, 0f))); } }
         public static Sprite Circle { get { return circle ?? (circle = Make("Circle", Disc(0.42f, 0f))); } }
         public static Sprite Ring { get { return ring ?? (ring = Make("Ring", Disc(0.40f, 0.29f))); } }
         public static Sprite Glow { get { return glow ?? (glow = Make("Glow", SoftGlow)); } }
+        public static Sprite Star { get { return star ?? (star = Make("Star", StarShape)); } }
         public static Sprite Square { get { return square ?? (square = Make("Square", (u, v) => 1f)); } }
 
         delegate float AlphaFn(float u, float v); // u, v in [-0.5, 0.5]
@@ -75,6 +76,43 @@ namespace NeonShift
                 if (innerRadius > 0f) a *= 1f - Edge(r - innerRadius);
                 return a;
             };
+        }
+
+        static readonly Vector2[] starPoints = BuildStar();
+
+        static Vector2[] BuildStar()
+        {
+            var pts = new Vector2[10];
+            for (int i = 0; i < 10; i++)
+            {
+                float r = i % 2 == 0 ? 0.47f : 0.2f;
+                float a = Mathf.PI * 0.5f + i * Mathf.PI / 5f;
+                pts[i] = new Vector2(Mathf.Cos(a) * r, Mathf.Sin(a) * r - 0.02f);
+            }
+            return pts;
+        }
+
+        static bool InPolygon(Vector2 p, Vector2[] poly)
+        {
+            bool inside = false;
+            for (int i = 0, j = poly.Length - 1; i < poly.Length; j = i++)
+            {
+                if ((poly[i].y > p.y) != (poly[j].y > p.y) &&
+                    p.x < (poly[j].x - poly[i].x) * (p.y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x)
+                    inside = !inside;
+            }
+            return inside;
+        }
+
+        static float StarShape(float u, float v)
+        {
+            // 4x4 supersampling for smooth edges.
+            const int n = 4;
+            float px = 1f / Size, hits = 0f;
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < n; j++)
+                    if (InPolygon(new Vector2(u + ((i + 0.5f) / n - 0.5f) * px, v + ((j + 0.5f) / n - 0.5f) * px), starPoints)) hits++;
+            return hits / (n * n);
         }
 
         static float SoftGlow(float u, float v)

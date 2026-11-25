@@ -46,6 +46,8 @@ namespace NeonShift
         public IEnumerator MoveTo(Vector3 target, float duration)
         {
             Vector3 from = transform.localPosition;
+            core.color = accent;
+            transform.localScale = Vector3.one;
             for (float t = 0f; t < duration; t += Time.deltaTime)
             {
                 float k = 1f - Mathf.Pow(1f - t / duration, 3f); // ease-out cubic

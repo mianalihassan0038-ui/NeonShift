@@ -4,7 +4,8 @@ namespace NeonShift
     {
         Moved,
         Blocked,
-        AlreadySolved
+        AlreadySolved,
+        OutOfMoves
     }
 
     public struct MoveOutcome
@@ -15,6 +16,7 @@ namespace NeonShift
         public GridPos lightFrom, lightTo;
         public GridPos shadowFrom, shadowTo;
         public bool solvedNow;
+        public bool failedNow; // this move used the last allowed move without solving
     }
 
     /// <summary>
@@ -22,18 +24,27 @@ namespace NeonShift
     /// Implements the paired-movement rule from the plan:
     /// Light moves with the swipe, Shadow moves opposite, and both destinations
     /// are validated BEFORE either character moves. If either is blocked, nothing moves.
+    /// Build 002 adds undo (full-state snapshots) and an optional move limit.
     /// </summary>
     public sealed class PuzzleState
     {
         public readonly LevelData Level;
         public readonly BoardState LightBoard;
         public readonly BoardState ShadowBoard;
+        readonly UndoManager history = new UndoManager();
 
         public GridPos LightPos { get; private set; }
         public GridPos ShadowPos { get; private set; }
         public int MoveCount { get; private set; }
 
+        /// <summary>0 means no limit.</summary>
+        public int MaxMoves { get { return Level.maxMoves; } }
+        public bool HasMoveLimit { get { return Level.maxMoves > 0; } }
+        public int MovesLeft { get { return HasMoveLimit ? System.Math.Max(0, Level.maxMoves - MoveCount) : int.MaxValue; } }
+
         public bool IsSolved { get { return LightPos == LightBoard.Exit && ShadowPos == ShadowBoard.Exit; } }
+        public bool IsFailed { get { return !IsSolved && HasMoveLimit && MoveCount >= Level.maxMoves; } }
+        public bool CanUndo { get { return history.Count > 0; } }
 
         public PuzzleState(LevelData level)
         {
@@ -43,11 +54,34 @@ namespace NeonShift
             Reset();
         }
 
+        /// <summary>Restart: both characters back to start, counter and history cleared.</summary>
         public void Reset()
         {
             LightPos = LightBoard.Start;
             ShadowPos = ShadowBoard.Start;
             MoveCount = 0;
+            history.Clear();
+        }
+
+        public PuzzleSnapshot Capture()
+        {
+            return new PuzzleSnapshot(LightPos, ShadowPos, MoveCount);
+        }
+
+        void Restore(PuzzleSnapshot s)
+        {
+            LightPos = s.LightPos;
+            ShadowPos = s.ShadowPos;
+            MoveCount = s.MoveCount;
+        }
+
+        /// <summary>Steps back one accepted move. Works after a win or a failure too.</summary>
+        public bool Undo()
+        {
+            PuzzleSnapshot s;
+            if (!history.TryPop(out s)) return false;
+            Restore(s);
+            return true;
         }
 
         public MoveOutcome TryMove(Direction swipe)
@@ -60,11 +94,8 @@ namespace NeonShift
                 shadowTo = ShadowPos
             };
 
-            if (IsSolved)
-            {
-                outcome.result = MoveResult.AlreadySolved;
-                return outcome;
-            }
+            if (IsSolved) { outcome.result = MoveResult.AlreadySolved; return outcome; }
+            if (IsFailed) { outcome.result = MoveResult.OutOfMoves; return outcome; }
 
             // 1. Calculate both candidate cells.
             GridPos lightTarget = LightPos.Step(swipe);
@@ -81,6 +112,7 @@ namespace NeonShift
             }
 
             // 3. Commit both together.
+            history.Push(Capture());
             LightPos = lightTarget;
             ShadowPos = shadowTarget;
             MoveCount++;
@@ -89,6 +121,7 @@ namespace NeonShift
             outcome.lightTo = lightTarget;
             outcome.shadowTo = shadowTarget;
             outcome.solvedNow = IsSolved;
+            outcome.failedNow = IsFailed;
             return outcome;
         }
     }

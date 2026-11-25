@@ -58,6 +58,8 @@ namespace NeonShift
             ui.Build(LightBoardY + LabelGap, ShadowBoardY + LabelGap);
             ui.NextPressed = NextLevel;
             ui.ReplayPressed = RestartLevel;
+            ui.RestartPressed = RestartLevel;
+            ui.UndoPressed = UndoMove;
 
             movement = gameObject.AddComponent<MovementManager>();
             movement.MoveFinished += OnMoveFinished;
@@ -102,7 +104,7 @@ namespace NeonShift
         {
             lastScreen = new Vector2Int(Screen.width, Screen.height);
             float aspect = Screen.height > 0 ? (float)Screen.width / Screen.height : 9f / 16f;
-            const float halfWidth = 4.75f, halfHeight = 8.2f;
+            const float halfWidth = 4.75f, halfHeight = 8.5f;
             cam.orthographicSize = Mathf.Max(halfHeight, halfWidth / aspect);
         }
 
@@ -110,27 +112,36 @@ namespace NeonShift
         {
             if (Screen.width != lastScreen.x || Screen.height != lastScreen.y) FitCamera();
 
+            // Keyboard shortcuts: Z / Backspace = undo, R = restart. N = skip level (Editor only).
+            if (KeyDown(KeyCode.Z) || KeyDown(KeyCode.Backspace)) UndoMove();
+            if (KeyDown(KeyCode.R)) RestartLevel();
 #if UNITY_EDITOR
-            // Editor-only shortcuts for testing levels quickly.
-            if (DebugKeyDown(KeyCode.R)) RestartLevel();
-            if (DebugKeyDown(KeyCode.N)) NextLevel();
+            if (KeyDown(KeyCode.N)) NextLevel();
 #endif
+            // Android back button / Escape also undoes.
+            if (KeyDown(KeyCode.Escape)) UndoMove();
         }
 
-#if UNITY_EDITOR
-        static bool DebugKeyDown(KeyCode key)
+        static bool KeyDown(KeyCode key)
         {
 #if ENABLE_INPUT_SYSTEM
             var kb = UnityEngine.InputSystem.Keyboard.current;
             if (kb == null) return false;
-            return key == KeyCode.R ? kb.rKey.wasPressedThisFrame : kb.nKey.wasPressedThisFrame;
+            switch (key)
+            {
+                case KeyCode.Z: return kb.zKey.wasPressedThisFrame;
+                case KeyCode.Backspace: return kb.backspaceKey.wasPressedThisFrame;
+                case KeyCode.R: return kb.rKey.wasPressedThisFrame;
+                case KeyCode.N: return kb.nKey.wasPressedThisFrame;
+                case KeyCode.Escape: return kb.escapeKey.wasPressedThisFrame;
+                default: return false;
+            }
 #elif ENABLE_LEGACY_INPUT_MANAGER
             return Input.GetKeyDown(key);
 #else
             return false;
 #endif
         }
-#endif
 
         void LoadCurrentLevel()
         {
@@ -145,7 +156,8 @@ namespace NeonShift
             shadowToken = PlayerController.Create("Shadow", shadowBoard.transform, NeonTheme.Shadow);
 
             movement.Bind(puzzle, lightBoard, shadowBoard, lightToken, shadowToken);
-            ui.ShowLevel(level, 0);
+            ui.ShowLevel(level);
+            RefreshMoves();
             State = GameState.Playing;
         }
 
@@ -157,10 +169,16 @@ namespace NeonShift
             if (!movement.IsBusy) State = GameState.Playing; // move ignored
         }
 
+        void RefreshMoves()
+        {
+            ui.SetMoves(puzzle.MoveCount, puzzle.MaxMoves, puzzle.CanUndo);
+        }
+
         void OnMoveFinished(MoveOutcome outcome)
         {
-            ui.SetMoves(puzzle.MoveCount);
+            RefreshMoves();
             if (outcome.solvedNow) StartCoroutine(Win());
+            else if (outcome.failedNow) { State = GameState.Failed; ui.ShowFailure(); }
             else State = GameState.Playing;
         }
 
@@ -169,12 +187,25 @@ namespace NeonShift
             State = GameState.Victory;
             StartCoroutine(lightToken.Celebrate(0.4f));
             yield return StartCoroutine(shadowToken.Celebrate(0.4f));
-            ui.ShowVictory(puzzle.MoveCount, puzzle.Level.starThresholds.threeStarsMaxMoves, levels.IsLastLevel);
+            int stars = StarManager.Calculate(puzzle.Level, puzzle.MoveCount);
+            SaveManager.RecordStars(puzzle.Level, stars);
+            ui.ShowVictory(puzzle.MoveCount, stars, puzzle.Level.starThresholds.threeStarsMaxMoves, levels.IsLastLevel);
+        }
+
+        /// <summary>Steps back one move. Also works from the failure panel.</summary>
+        public void UndoMove()
+        {
+            if (puzzle == null || movement.IsBusy || State == GameState.Victory) return;
+            if (!puzzle.Undo()) return;
+            ui.HidePanels();
+            movement.SyncTokens();
+            RefreshMoves();
+            State = GameState.Playing;
         }
 
         void OnTap(Vector2 screenPos)
         {
-            if (State != GameState.Victory || !ui.VictoryVisible) return;
+            if (State == GameState.Loading || movement.IsBusy) return;
             Vector3 world = cam.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, -cam.transform.position.z));
             world.z = 0f;
             ui.HandleTap(world);

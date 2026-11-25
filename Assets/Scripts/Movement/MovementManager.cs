@@ -34,11 +34,27 @@ namespace NeonShift
             shadowToken.SnapTo(shadowBoard.CellToLocal(puzzle.ShadowPos));
         }
 
+        /// <summary>Moves the tokens to the puzzle's current cells (after undo).</summary>
+        public void SyncTokens()
+        {
+            if (puzzle == null) return;
+            StopAllCoroutines();
+            StartCoroutine(SyncRoutine());
+        }
+
+        IEnumerator SyncRoutine()
+        {
+            IsBusy = true;
+            StartCoroutine(lightToken.MoveTo(lightBoard.CellToLocal(puzzle.LightPos), MoveDuration));
+            yield return StartCoroutine(shadowToken.MoveTo(shadowBoard.CellToLocal(puzzle.ShadowPos), MoveDuration));
+            IsBusy = false;
+        }
+
         public void RequestMove(Direction swipe)
         {
             if (IsBusy || puzzle == null) return;
             MoveOutcome outcome = puzzle.TryMove(swipe);
-            if (outcome.result == MoveResult.AlreadySolved) return;
+            if (outcome.result == MoveResult.AlreadySolved || outcome.result == MoveResult.OutOfMoves) return;
             StartCoroutine(Animate(outcome, swipe));
         }
 
