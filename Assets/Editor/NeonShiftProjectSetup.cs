@@ -16,7 +16,7 @@ namespace NeonShift.EditorTools
     [InitializeOnLoad]
     public static class NeonShiftProjectSetup
     {
-        const string ScenePath = "Assets/Scenes/Gameplay.unity";
+        public const string ScenePath = "Assets/Scenes/Gameplay.unity";
         const string DoneKey = "NeonShift.ProjectSetupDone";
 
         static NeonShiftProjectSetup()
@@ -59,6 +59,13 @@ namespace NeonShift.EditorTools
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             if (!File.Exists(ScenePath)) CreateGameplayScene();
             else EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            AddSceneToBuildSettings();
+        }
+
+        /// <summary>Creates the scene if needed (safe in batch mode) and lists it in Build Settings.</summary>
+        public static void EnsureGameplayScene()
+        {
+            if (!File.Exists(ScenePath)) CreateGameplayScene();
             AddSceneToBuildSettings();
         }
 

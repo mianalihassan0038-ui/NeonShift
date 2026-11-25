@@ -11,7 +11,7 @@ namespace NeonShift
     {
         const int Size = 128;
 
-        static Sprite roundedTile, roundedFrame, circle, ring, glow, square, star;
+        static Sprite roundedTile, roundedFrame, circle, ring, glow, square, star, arrow;
 
         public static Sprite RoundedTile { get { return roundedTile ?? (roundedTile = Make("RoundedTile", RoundedRect(0.22f, 0f))); } }
         public static Sprite RoundedFrame { get { return roundedFrame ?? (roundedFrame = Make("RoundedFrame", RoundedRect(0.08f, 0f))); } }
@@ -19,6 +19,7 @@ namespace NeonShift
         public static Sprite Ring { get { return ring ?? (ring = Make("Ring", Disc(0.40f, 0.29f))); } }
         public static Sprite Glow { get { return glow ?? (glow = Make("Glow", SoftGlow)); } }
         public static Sprite Star { get { return star ?? (star = Make("Star", StarShape)); } }
+        public static Sprite Arrow { get { return arrow ?? (arrow = Make("Arrow", ArrowShape)); } }
         public static Sprite Square { get { return square ?? (square = Make("Square", (u, v) => 1f)); } }
 
         delegate float AlphaFn(float u, float v); // u, v in [-0.5, 0.5]
@@ -112,6 +113,23 @@ namespace NeonShift
             for (int i = 0; i < n; i++)
                 for (int j = 0; j < n; j++)
                     if (InPolygon(new Vector2(u + ((i + 0.5f) / n - 0.5f) * px, v + ((j + 0.5f) / n - 0.5f) * px), starPoints)) hits++;
+            return hits / (n * n);
+        }
+
+        static readonly Vector2[] arrowPoints =
+        {
+            new Vector2(-0.42f, 0.11f), new Vector2(0.06f, 0.11f), new Vector2(0.06f, 0.3f),
+            new Vector2(0.44f, 0f), new Vector2(0.06f, -0.3f), new Vector2(0.06f, -0.11f), new Vector2(-0.42f, -0.11f)
+        };
+
+        /// <summary>Arrow pointing right (+x). Rotate the transform for other directions.</summary>
+        static float ArrowShape(float u, float v)
+        {
+            const int n = 4;
+            float px = 1f / Size, hits = 0f;
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < n; j++)
+                    if (InPolygon(new Vector2(u + ((i + 0.5f) / n - 0.5f) * px, v + ((j + 0.5f) / n - 0.5f) * px), arrowPoints)) hits++;
             return hits / (n * n);
         }
 
