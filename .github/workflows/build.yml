@@ -36,9 +36,12 @@ jobs:
     steps:
       - name: Check Unity secrets
         run: |
-          if [ -z "$UNITY_LICENSE" ] || [ -z "$UNITY_EMAIL" ] || [ -z "$UNITY_PASSWORD" ]; then
-            echo "::error::Add UNITY_LICENSE, UNITY_EMAIL and UNITY_PASSWORD in Settings > Secrets and variables > Actions."
+          if [ -z "$UNITY_EMAIL" ] || [ -z "$UNITY_PASSWORD" ]; then
+            echo "::error::Add UNITY_EMAIL and UNITY_PASSWORD (and UNITY_LICENSE) in Settings > Secrets and variables > Actions."
             exit 1
+          fi
+          if [ -z "$UNITY_LICENSE" ]; then
+            echo "::warning::UNITY_LICENSE is empty (check the exact name: UNITY_LICENSE). Trying email/password activation only."
           fi
 
       - name: Free disk space
