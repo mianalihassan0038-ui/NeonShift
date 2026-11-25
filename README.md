@@ -21,7 +21,7 @@ Following every build in the game plan:
 
 - **Build 001, core loop:** two 5×5 boards, swipe input (one gesture = one move, multitouch cancels, input locked while animating), paired movement validated before anything moves, wall and edge collision with a red "bump", move counter, win detection.
 - **Build 002, puzzle tools:** undo (full-state snapshots), restart, per-level move limit with a Level Failed panel, 1–3 star rating saved per level.
-- **Build 003, UI and content:** splash with loading bar, main menu, world select, world map with level nodes and stars, pause panel, Level Complete / Level Failed panels, 20 levels in two worlds (every one proven solvable), first-time swipe tutorial and teaching hints.
+- **Build 003, UI and content:** splash with loading bar, main menu, world select, world map with level nodes and stars, pause panel, Level Complete / Level Failed panels, 20 levels in two worlds of 10 (every one proven solvable), first-time swipe tutorial and teaching hints.
 - **Polish:** synthesized music and sound effects with on/off and volume, short haptics, settings screen, safe-area aware layout for notched phones, screen fades, Inter font.
 - **Extras from the UI designs:** Daily Challenge (a new solver-checked puzzle each day, same for everyone, with streaks and a coin reward), Hint button (the solver shows the next correct swipe; 3 free hints, then 100 coins each), coins, achievements and a profile with player level.
 - **Release prep:** app icon, store listing draft (`STORE_LISTING.md`), privacy policy (`PRIVACY.md`), feature graphic (`docs/store/`), Android build script with IL2CPP + ARM64/ARMv7 and an AAB option.
