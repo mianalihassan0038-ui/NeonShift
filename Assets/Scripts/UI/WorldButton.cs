@@ -1,77 +1,106 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace NeonShift
 {
-    /// <summary>A simple tappable button made of a sprite and a label (no uGUI needed).</summary>
+    public enum ButtonStyle
+    {
+        Outline,   // dark fill, glowing border and text
+        Filled,    // bright fill, dark text (primary actions)
+        Round      // circular icon button with a caption underneath
+    }
+
+    /// <summary>A tappable neon button made of sprites and a label (no uGUI needed).</summary>
     public sealed class WorldButton : MonoBehaviour
     {
         public Action Clicked;
+
         Vector2 size;
         bool interactable = true;
-        SpriteRenderer border;
-        TextMesh label;
         Color accent;
+        ButtonStyle style;
+        SpriteRenderer border, fill, halo;
+        TextMesh label;
+        float pressedUntil;
 
-        public static WorldButton Create(Transform parent, string label, Vector3 localPos, Vector2 size, Color accent, int order)
+        public TextMesh Label { get { return label; } }
+        public bool Interactable { get { return interactable; } }
+
+        public static WorldButton Create(Transform parent, string text, Vector3 localPos, Vector2 size, Color accent, int order,
+                                         ButtonStyle style = ButtonStyle.Outline, string caption = null)
         {
-            var go = new GameObject("Button " + label);
+            var go = new GameObject("Button " + text);
             go.transform.SetParent(parent, false);
             go.transform.localPosition = localPos;
-            var button = go.AddComponent<WorldButton>();
-            button.size = size;
+            var b = go.AddComponent<WorldButton>();
+            b.size = size;
+            b.accent = accent;
+            b.style = style;
 
-            button.accent = accent;
-            var border = new GameObject("Border").AddComponent<SpriteRenderer>();
-            button.border = border;
-            border.transform.SetParent(go.transform, false);
-            border.transform.localScale = new Vector3(size.x, size.y, 1f);
-            border.sprite = NeonSprites.RoundedFrame;
-            border.color = accent;
-            border.sortingOrder = order;
+            Sprite shape = style == ButtonStyle.Round ? NeonSprites.Circle : NeonSprites.RoundedFrame;
+            b.halo = UIKit.Sprite("Halo", go.transform, NeonSprites.Glow, NeonTheme.WithAlpha(accent, 0.28f), Vector3.zero, size * 1.5f, order);
+            b.border = UIKit.Sprite("Border", go.transform, shape, accent, Vector3.zero, size, order + 1);
+            b.fill = UIKit.Sprite("Fill", go.transform, shape, style == ButtonStyle.Filled ? accent : NeonTheme.Panel, Vector3.zero, size - new Vector2(0.1f, 0.1f), order + 2);
+            if (style == ButtonStyle.Filled)
+                UIKit.Sprite("Shine", go.transform, NeonSprites.RoundedFrame, NeonTheme.WithAlpha(Color.white, 0.18f), new Vector3(0f, size.y * 0.2f, 0f), new Vector2(size.x - 0.25f, size.y * 0.35f), order + 3);
 
-            var fill = new GameObject("Fill").AddComponent<SpriteRenderer>();
-            fill.transform.SetParent(go.transform, false);
-            fill.transform.localScale = new Vector3(size.x - 0.1f, size.y - 0.1f, 1f);
-            fill.sprite = NeonSprites.RoundedFrame;
-            fill.color = NeonTheme.Panel;
-            fill.sortingOrder = order + 1;
+            float textHeight = style == ButtonStyle.Round ? size.y * 0.5f : Mathf.Min(size.y * 0.42f, 0.6f);
+            Color textColor = style == ButtonStyle.Filled ? NeonTheme.Background : accent;
+            b.label = UIKit.Text("Label", go.transform, Vector3.zero, textHeight, textColor, TextAnchor.MiddleCenter, order + 4);
+            b.label.text = text;
 
-            button.label = GameplayUI.MakeText("Label", go.transform, Vector3.zero, size.y * 0.42f, accent, TextAnchor.MiddleCenter, order + 2);
-            button.label.text = label;
-            return button;
+            if (caption != null)
+                UIKit.Text("Caption", go.transform, new Vector3(0f, -size.y * 0.5f - 0.3f, 0f), 0.3f, NeonTheme.Text, TextAnchor.MiddleCenter, order + 4).text = caption;
+            return b;
         }
 
         /// <summary>Disabled buttons are dimmed and ignore taps.</summary>
-        public TextMesh Label { get { return label; } }
-
         public void SetEnabled(bool enabled)
         {
             interactable = enabled;
-            Color c = enabled ? accent : NeonTheme.WithAlpha(accent, 0.25f);
-            border.color = c;
-            label.color = c;
+            float a = enabled ? 1f : 0.25f;
+            border.color = NeonTheme.WithAlpha(accent, a);
+            halo.color = NeonTheme.WithAlpha(accent, enabled ? 0.28f : 0f);
+            if (style == ButtonStyle.Filled) fill.color = NeonTheme.WithAlpha(accent, a);
+            Color textColor = style == ButtonStyle.Filled ? NeonTheme.Background : accent;
+            label.color = NeonTheme.WithAlpha(textColor, style == ButtonStyle.Filled ? 1f : a);
         }
 
-        /// <summary>Clicks the first enabled, visible button under the point. Returns true if one was hit.</summary>
-        public static bool TapAny(System.Collections.Generic.IList<WorldButton> buttons, Vector3 worldPoint)
+        public void SetAccent(Color newAccent)
         {
-            foreach (var b in buttons)
-            {
-                if (b != null && b.Contains(worldPoint))
-                {
-                    if (b.Clicked != null) b.Clicked();
-                    return true;
-                }
-            }
-            return false;
+            accent = newAccent;
+            SetEnabled(interactable);
+        }
+
+        void Update()
+        {
+            float target = Time.unscaledTime < pressedUntil ? 0.92f : 1f;
+            float s = Mathf.MoveTowards(transform.localScale.x, target, Time.unscaledDeltaTime * 3f);
+            transform.localScale = new Vector3(s, s, 1f);
         }
 
         public bool Contains(Vector3 worldPoint)
         {
             if (!interactable || !gameObject.activeInHierarchy) return false;
             Vector3 local = worldPoint - transform.position;
-            return Mathf.Abs(local.x) <= size.x * 0.5f && Mathf.Abs(local.y) <= size.y * 0.5f;
+            return Mathf.Abs(local.x) <= size.x * 0.5f + 0.05f && Mathf.Abs(local.y) <= size.y * 0.5f + 0.05f;
+        }
+
+        /// <summary>Clicks the first enabled, visible button under the point. Returns true if one was hit.</summary>
+        public static bool TapAny(IList<WorldButton> buttons, Vector3 worldPoint)
+        {
+            foreach (var b in buttons)
+            {
+                if (b != null && b.Contains(worldPoint))
+                {
+                    b.pressedUntil = Time.unscaledTime + 0.08f;
+                    if (AudioManager.Instance != null) AudioManager.Instance.Play(Sfx.Click);
+                    if (b.Clicked != null) b.Clicked();
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

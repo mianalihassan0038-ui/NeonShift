@@ -13,6 +13,9 @@ namespace NeonShift
         public static readonly Color Panel = Hex(0x121A33);
         public static readonly Color EmptyCell = Hex(0x18223F);
         public static readonly Color Blocked = Hex(0xFF4D6D);
+        public static readonly Color Success = Hex(0x3EE06B);
+        public static readonly Color Pink = Hex(0xFF4FD8);
+        public static readonly Color Blue = Hex(0x2F7BFF);
 
         public static Color Hex(int rgb, float alpha = 1f)
         {

@@ -10,51 +10,41 @@ If either one would hit a wall or a board edge, **neither** moves. Get both onto
 
 _The image is a layout preview rendered outside Unity, not an in-game screenshot._
 
-## Status: Build 003 (menus and flow)
+## Download
 
-Build 001, the core loop:
+**Android APK:** [latest release](https://github.com/mianalihassan0038-ui/NeonShift/releases/latest) → `NeonShift.apk`.
+On the phone, open the file and allow "Install unknown apps" when asked. The APK is built automatically by GitHub Actions on every push to `main` (debug-signed, for testing).
 
-- Two synchronized 5×5 boards, stacked for portrait.
-- Swipe input (touch and mouse) plus arrow keys / WASD in the Editor. One gesture is one move; a second finger cancels it; input is locked while tokens animate.
-- Paired movement: both destinations are validated first, then both move together.
-- Wall and edge collision, with a red "bump" showing which character was blocked.
-- Move counter (rejected swipes don't count) and win detection (both on their exits).
-- 8 World 01 levels (4 to 14 moves), each proven solvable by an automated solver.
+## What's in the game
 
-Build 002, the puzzle tools:
+Following every build in the game plan:
 
-- **Undo**: restores both characters and the move count, one step at a time (button, `Z`, `Backspace`, or Android back).
-- **Restart**: resets the whole level (button or `R`).
-- **Move limit**: each level has `maxMoves`. The counter shows `MOVES 3/11` and turns yellow near the end. Running out shows an **Out of moves** panel with Undo and Retry.
-- **Stars**: 1 to 3 stars from each level's thresholds, shown on the level-complete panel. The best rating per level is saved.
+- **Build 001, core loop:** two 5×5 boards, swipe input (one gesture = one move, multitouch cancels, input locked while animating), paired movement validated before anything moves, wall and edge collision with a red "bump", move counter, win detection.
+- **Build 002, puzzle tools:** undo (full-state snapshots), restart, per-level move limit with a Level Failed panel, 1–3 star rating saved per level.
+- **Build 003, UI and content:** splash with loading bar, main menu, world select, world map with level nodes and stars, pause panel, Level Complete / Level Failed panels, 20 levels in two worlds (every one proven solvable), first-time swipe tutorial and teaching hints.
+- **Polish:** synthesized music and sound effects with on/off and volume, short haptics, settings screen, safe-area aware layout for notched phones, screen fades, Inter font.
+- **Extras from the UI designs:** Daily Challenge (a new solver-checked puzzle each day, same for everyone, with streaks and a coin reward), Hint button (the solver shows the next correct swipe; 3 free hints, then 100 coins each), coins, achievements and a profile with player level.
+- **Release prep:** app icon, store listing draft (`STORE_LISTING.md`), privacy policy (`PRIVACY.md`), feature graphic (`docs/store/`), Android build script with IL2CPP + ARM64/ARMv7 and an AAB option.
 
-Not added yet: energy nodes. The plan says to compare the game with and without them first, so that is still an open decision.
-
-Build 003, menus and flow:
-
-- **Main menu**: NEON / SHIFT title, **PLAY** (continues your current level), **LEVELS**, and your total stars.
-- **Level select**: a grid of World 01 levels. Locked levels are dimmed, completed ones show their best stars, and the current one is highlighted. Finishing a level unlocks the next.
-- **Pause**: the `II` button (or Android back / Escape) opens Resume, Restart, Levels and Menu.
-- Teaching hints under the boards on levels 1 to 4.
-- After the last level, **LEVELS** takes you back to level select.
-
-All screens live in the one Gameplay scene and are switched on and off in code, instead of the separate Boot / MainMenu / LevelSelect scenes in the plan. This keeps the setup to a single empty scene.
-
-Next up (polish): sound and music with a settings screen, haptics, more levels and worlds, and testing on real phones.
+Not included, on purpose: the Shop, real-money purchases and ads (the plan says to add those only after the game is stable), the "Switch" button from the mockups (no matching mechanic in the plan), and Worlds 3–5 (their mechanics, portals, gates and one-way paths, are "later" in the plan; the world cards show "Coming soon").
 
 ## Open it in Unity
 
 1. Install **Unity Hub** and a **Unity 6** editor with **Android Build Support**.
 2. Clone this repo, then in Unity Hub choose **Add → Add project from disk** and pick the `NeonShift` folder. If Hub asks for an editor version, pick your Unity 6 version.
 3. On first open, the project sets portrait Player Settings and creates `Assets/Scenes/Gameplay.unity` automatically. (You can also use the **NEON SHIFT** menu.)
-4. Press **Play**. Swipe with the mouse or use the arrow keys. `Z` undoes, `R` restarts, and in the Editor `N` skips a level.
+4. Press **Play**. Swipe with the mouse or use the arrow keys. `Z` undoes, `R` restarts, `H` shows a hint, and in the Editor `N` skips a level.
 5. After the first open, commit the `.meta` files Unity creates.
 
 Everything (camera, boards, tokens, text) is created in code by `GameManager`, so the scene can stay empty and the prototype needs no art files.
 
-## Play it on an Android phone
+## Build the APK yourself
 
-File → Build Profiles (Build Settings) → Android → Switch Platform. Set a package name in Player Settings (for example `com.yourname.neonshift`), connect the phone with USB debugging on, and choose **Build And Run**. Use APK for testing, AAB for the Play Store.
+- In the Editor: **NEON SHIFT → Build Android APK** (writes `Builds/Android/NeonShift.apk`).
+- Command line: `Unity -batchmode -quit -projectPath . -executeMethod NeonShift.EditorTools.BuildScript.BuildAndroid` (add `-androidAab` for a Play Store bundle).
+- CI: `.github/workflows/build.yml` runs the rule tests, builds with [GameCI](https://game.ci), uploads the APK as an artifact and publishes a GitHub Release. It needs three repository secrets: `UNITY_LICENSE` (contents of your `Unity_lic.ulf`), `UNITY_EMAIL` and `UNITY_PASSWORD`.
+
+The package name is `com.neonshift.game` (change it in `Assets/Editor/BuildScript.cs`).
 
 ## Project layout
 
@@ -69,10 +59,14 @@ Assets/
     Player/    PlayerController (token visuals and animation)
     Input/     SwipeInput
     Movement/  MovementManager, CollisionChecker
-    Puzzle/    PuzzleState (the rules), PuzzleSolver (shortest solution), StarManager
+    Puzzle/    PuzzleState (the rules), PuzzleSolver (shortest solution), StarManager, DailyChallenge
     History/   UndoManager (state snapshots)
-    UI/        GameplayUI, MainMenuUI, LevelSelectUI, WorldButton, NeonTheme, NeonSprites
-    Save/      SaveManager
+    UI/        GameplayUI, UIKit, WorldButton, Widgets (toggle, slider), TutorialHint, NeonTheme, NeonSprites
+    UI/Screens Splash, MainMenu, WorldSelect, LevelMap, Daily, Achievements, Settings, Profile
+    Audio/     AudioManager (synthesized sounds), Haptics
+    Progress/  Rewards, achievements (plain C#)
+    Save/      SaveManager (progress, coins, hints, daily streak), SettingsData
+  Resources/Fonts/                  Inter (SIL Open Font License, see OFL.txt)
 Tests/CoreTests.cs        rule tests that run without Unity
 tools/run-core-tests.sh   compiles and runs the tests with Mono
 tools/generate_levels.py  helper that searches for new levels
@@ -110,12 +104,12 @@ sudo apt install mono-devel   # once
 tools/run-core-tests.sh
 ```
 
-They check all four directions, Light-blocked and Shadow-blocked cases, board edges, the move counter, the win rule, undo, restart, the move limit, stars, and that every shipped level is valid and solvable.
+They check all four directions, the daily-challenge generator, hints from any position, coin rewards and achievements, Light-blocked and Shadow-blocked cases, board edges, the move counter, the win rule, undo, restart, the move limit, stars, and that every shipped level is valid and solvable.
 
 ## Make new levels
 
 ```
-python3 tools/generate_levels.py <seed> <target_moves> [count]
+python3 tools/generate_levels.py <seed> <target_moves> [count] [min_density] [max_density] [--climb]
 ```
 
 It prints random 5×5 levels whose shortest solution is exactly `target_moves` and needs a detour. Copy a good one into a JSON file, then run the tests.

@@ -170,6 +170,54 @@ static class CoreTests
         Check(StarManager.Calculate(level, 11) == 1 && StarManager.Calculate(level, 20) == 1, "otherwise 1 star");
     }
 
+    static void TestDailyChallenge()
+    {
+        var a = DailyChallenge.Generate(20261125);
+        var b = DailyChallenge.Generate(20261125);
+        Check(a.Validate().Count == 0, "daily level is valid");
+        var sa = PuzzleSolver.Solve(a);
+        var sb = PuzzleSolver.Solve(b);
+        Check(sa != null && sb != null && sa.Count == sb.Count && a.light.start == b.light.start && a.shadow.exit == b.shadow.exit, "daily is the same for the same day");
+        for (int day = 20261120; day < 20261131; day++)
+        {
+            var level = DailyChallenge.Generate(day);
+            var sol = PuzzleSolver.Solve(level);
+            Check(sol != null && sol.Count >= DailyChallenge.MinMoves && sol.Count <= DailyChallenge.MaxMoves, "daily " + day + " solvable in range");
+            Check(sol != null && level.starThresholds.threeStarsMaxMoves == sol.Count && level.maxMoves >= sol.Count, "daily " + day + " thresholds match");
+        }
+        Check(DailyChallenge.DayNumber(new DateTime(2026, 11, 25)) == 20261125, "day number format");
+    }
+
+    static void TestSolverFromState()
+    {
+        var level = OpenLevel();
+        var state = new PuzzleState(level);
+        state.TryMove(Direction.Up);
+        var path = PuzzleSolver.Solve(level, state.LightPos, state.ShadowPos);
+        Check(path != null && path.Count == 3, "solver from a mid-level position");
+        foreach (var d in path) state.TryMove(d);
+        Check(state.IsSolved, "hint path solves from there");
+    }
+
+    static void TestRewards()
+    {
+        Check(Rewards.LevelCoins(0, 3) == Rewards.FirstClearCoins + 3 * Rewards.CoinsPerNewStar, "first clear with 3 stars");
+        Check(Rewards.LevelCoins(2, 3) == Rewards.CoinsPerNewStar, "improving from 2 to 3 stars");
+        Check(Rewards.LevelCoins(3, 2) == 0, "replay without improvement gives nothing");
+        Func<int, int> next = d => d + 1;
+        Check(Rewards.NextStreak(0, 20261125, 0, next) == 1, "first daily starts a streak");
+        Check(Rewards.NextStreak(20261124, 20261125, 4, next) == 5, "consecutive day extends streak");
+        Check(Rewards.NextStreak(20261120, 20261125, 4, next) == 1, "missed day resets streak");
+        Check(Rewards.PlayerLevel(0) == 1 && Rewards.PlayerLevel(Rewards.XpPerLevel) == 2, "player levels");
+
+        var p = new ProgressSnapshot { levelsCompleted = 20, totalLevels = 20, world1Completed = 10, world1Total = 10, perfectLevels = 4, noHintLevels = 12, bestDailyStreak = 2 };
+        var ach = Achievements.Evaluate(p);
+        Check(ach[0].Unlocked && ach[1].Unlocked && ach[2].Unlocked, "completion achievements unlock");
+        Check(!ach[3].Unlocked && ach[3].progress == 4, "perfect solver progress");
+        Check(ach[4].Unlocked && ach[4].progress == 10, "progress is capped at the goal");
+        Check(!ach[5].Unlocked, "daily player not yet");
+    }
+
     static void TestShippedLevels(string folder)
     {
         var files = Directory.GetFiles(folder, "*.json", SearchOption.AllDirectories);
@@ -214,6 +262,9 @@ static class CoreTests
         TestUndo();
         TestMoveLimit();
         TestStars();
+        TestDailyChallenge();
+        TestSolverFromState();
+        TestRewards();
         TestShippedLevels(args.Length > 0 ? args[0] : "Assets/Resources/Levels");
         Console.WriteLine(passed + " passed, " + failures + " failed");
         return failures == 0 ? 0 : 1;

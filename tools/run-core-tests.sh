@@ -13,6 +13,8 @@ mcs -nologo -langversion:7 -r:System.Runtime.Serialization -out:"$OUT" \
   Assets/Scripts/Puzzle/PuzzleState.cs \
   Assets/Scripts/Puzzle/PuzzleSolver.cs \
   Assets/Scripts/Puzzle/StarManager.cs \
+  Assets/Scripts/Puzzle/DailyChallenge.cs \
+  Assets/Scripts/Progress/Rewards.cs \
   Assets/Scripts/History/UndoManager.cs \
   Tests/CoreTests.cs
 mono "$OUT" Assets/Resources/Levels

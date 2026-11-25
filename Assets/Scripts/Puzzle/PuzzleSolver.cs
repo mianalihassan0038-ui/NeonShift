@@ -11,10 +11,16 @@ namespace NeonShift
         /// <summary>Shortest list of swipes that solves the level, or null if unsolvable.</summary>
         public static List<Direction> Solve(LevelData level)
         {
+            return Solve(level, level.light.start, level.shadow.start);
+        }
+
+        /// <summary>Shortest solution from any position (used by the Hint button).</summary>
+        public static List<Direction> Solve(LevelData level, GridPos lightPos, GridPos shadowPos)
+        {
             var lightBoard = new BoardState(level.gridWidth, level.gridHeight, level.light);
             var shadowBoard = new BoardState(level.gridWidth, level.gridHeight, level.shadow);
 
-            var start = new KeyValuePair<GridPos, GridPos>(lightBoard.Start, shadowBoard.Start);
+            var start = new KeyValuePair<GridPos, GridPos>(lightPos, shadowPos);
             var cameFrom = new Dictionary<KeyValuePair<GridPos, GridPos>, KeyValuePair<KeyValuePair<GridPos, GridPos>, Direction>>();
             var visited = new HashSet<KeyValuePair<GridPos, GridPos>> { start };
             var queue = new Queue<KeyValuePair<GridPos, GridPos>>();

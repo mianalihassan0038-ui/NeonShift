@@ -31,6 +31,29 @@ namespace NeonShift
             }
         }
 
+        public List<int> IndicesInWorld(int worldId)
+        {
+            var result = new List<int>();
+            for (int i = 0; i < levels.Count; i++) if (levels[i].worldId == worldId) result.Add(i);
+            return result;
+        }
+
+        public int CountInWorld(int worldId) { return IndicesInWorld(worldId).Count; }
+
+        public int StarsInWorld(int worldId)
+        {
+            int total = 0;
+            foreach (int i in IndicesInWorld(worldId)) total += SaveManager.GetStars(levels[i]);
+            return total;
+        }
+
+        /// <summary>A world is open once its first level is unlocked.</summary>
+        public bool IsWorldUnlocked(int worldId)
+        {
+            List<int> idx = IndicesInWorld(worldId);
+            return idx.Count > 0 && IsUnlocked(idx[0]);
+        }
+
         public void Select(int index)
         {
             if (!IsUnlocked(index)) return;

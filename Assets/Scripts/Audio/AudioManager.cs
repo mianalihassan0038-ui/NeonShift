@@ -20,6 +20,8 @@ namespace NeonShift
     {
         const int Rate = 44100;
 
+        public static AudioManager Instance { get; private set; }
+
         AudioSource sfxSource, musicSource;
         AudioClip[] clips;
 
@@ -28,6 +30,7 @@ namespace NeonShift
             var go = new GameObject("Audio");
             go.transform.SetParent(parent, false);
             var am = go.AddComponent<AudioManager>();
+            Instance = am;
             am.Init();
             return am;
         }
@@ -39,7 +42,6 @@ namespace NeonShift
             musicSource = gameObject.AddComponent<AudioSource>();
             musicSource.playOnAwake = false;
             musicSource.loop = true;
-            musicSource.volume = 0.22f;
 
             clips = new AudioClip[6];
             clips[(int)Sfx.Move] = Tone("move", 0.07f, 660f, 880f, 0.35f, Wave.Sine);
@@ -54,7 +56,9 @@ namespace NeonShift
 
         public void ApplySettings()
         {
-            if (SettingsData.Music) { if (!musicSource.isPlaying) musicSource.Play(); }
+            musicSource.volume = 0.3f * SettingsData.MusicVolume;
+            sfxSource.volume = SettingsData.SoundVolume;
+            if (SettingsData.Music && SettingsData.MusicVolume > 0.01f) { if (!musicSource.isPlaying) musicSource.Play(); }
             else musicSource.Stop();
         }
 

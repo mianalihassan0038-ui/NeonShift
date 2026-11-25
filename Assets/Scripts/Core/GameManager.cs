@@ -1,37 +1,57 @@
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace NeonShift
 {
     /// <summary>
-    /// Entry point. Creates the camera, menus, both boards, both tokens and the UI in code,
-    /// so it runs from any scene (including an empty one). Screens (main menu, level select,
-    /// gameplay) are child objects that are switched on and off.
+    /// Entry point. Creates the camera, audio, every screen, both boards, both tokens and the UI in code,
+    /// so it runs from any scene (including an empty one). Screens are child objects switched on and off.
     /// </summary>
     public sealed class GameManager : MonoBehaviour
     {
         // Layout in world units inside a 9 x 16 portrait area centred on the origin.
         const float LightBoardY = 3.0f;
         const float ShadowBoardY = -3.55f;
-        const float LabelGap = 3.3f; // label distance above a board centre
 
         public static GameManager Instance { get; private set; }
 
         public GameState State { get; private set; }
         public AppScreen CurrentScreen { get; private set; }
+        public LevelManager Levels { get; private set; }
+        public AudioManager Audio { get; private set; }
+        public int Today { get { return DailyChallenge.DayNumber(DateTime.Now); } }
+        public bool DailyDoneToday { get { return SaveManager.DailyLastDay == Today; } }
+
+        LevelData dailyLevel;
+        int dailyDay;
+        public LevelData DailyLevel
+        {
+            get
+            {
+                if (dailyLevel == null || dailyDay != Today) { dailyDay = Today; dailyLevel = DailyChallenge.Generate(dailyDay); }
+                return dailyLevel;
+            }
+        }
 
         Camera cam;
         Vector2Int lastScreen;
-        LevelManager levels;
+        Rect lastSafeArea;
+        SpriteRenderer fader;
+        float fadeAlpha;
+
+        readonly Dictionary<AppScreen, UIScreen> screens = new Dictionary<AppScreen, UIScreen>();
+        GameObject gameplayRoot;
         PuzzleState puzzle;
+        bool playingDaily;
+        bool usedHintThisLevel;
         BoardRenderer lightBoard, shadowBoard;
         PlayerController lightToken, shadowToken;
         MovementManager movement;
         SwipeInput swipe;
         GameplayUI ui;
-        MainMenuUI mainMenu;
-        LevelSelectUI levelSelect;
-        GameObject gameplayRoot;
+        TutorialHint arrows;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AutoStart()
@@ -50,21 +70,43 @@ namespace NeonShift
             Screen.sleepTimeout = SleepTimeout.NeverSleep;
 
             SetupCamera();
+            Audio = AudioManager.Create(transform);
+            Levels = new LevelManager(LevelLoader.LoadAll());
+            if (Levels.Count == 0) Debug.LogError("NEON SHIFT: no levels found in Assets/Resources/Levels");
 
+            BuildGameplay();
+            AddScreen<SplashScreen>(AppScreen.Splash);
+            AddScreen<MainMenuScreen>(AppScreen.MainMenu);
+            AddScreen<WorldSelectScreen>(AppScreen.WorldSelect);
+            AddScreen<LevelMapScreen>(AppScreen.LevelSelect);
+            AddScreen<DailyScreen>(AppScreen.Daily);
+            AddScreen<AchievementsScreen>(AppScreen.Achievements);
+            AddScreen<SettingsScreen>(AppScreen.Settings);
+            AddScreen<ProfileScreen>(AppScreen.Profile);
+
+            fader = UIKit.Sprite("Fader", transform, NeonSprites.Square, NeonTheme.Background, Vector3.zero, new Vector2(60f, 60f), 200);
+
+            swipe = gameObject.AddComponent<SwipeInput>();
+            swipe.Swiped += OnSwipe;
+            swipe.Tapped += OnTap;
+            swipe.Dragging += OnDrag;
+
+            ShowScreen(AppScreen.Splash);
+        }
+
+        void AddScreen<T>(AppScreen id) where T : UIScreen
+        {
+            var screen = new GameObject(id.ToString()).AddComponent<T>();
+            screen.transform.SetParent(transform, false);
+            screen.Init(this);
+            screen.gameObject.SetActive(false);
+            screens[id] = screen;
+        }
+
+        void BuildGameplay()
+        {
             gameplayRoot = new GameObject("Gameplay");
             gameplayRoot.transform.SetParent(transform, false);
-
-            mainMenu = new GameObject("MainMenu").AddComponent<MainMenuUI>();
-            mainMenu.transform.SetParent(transform, false);
-            mainMenu.Build();
-            mainMenu.PlayPressed = () => StartLevel(levels.CurrentIndex);
-            mainMenu.LevelsPressed = () => ShowScreen(AppScreen.LevelSelect);
-
-            levelSelect = new GameObject("LevelSelect").AddComponent<LevelSelectUI>();
-            levelSelect.transform.SetParent(transform, false);
-            levelSelect.Build();
-            levelSelect.LevelChosen = StartLevel;
-            levelSelect.BackPressed = () => ShowScreen(AppScreen.MainMenu);
 
             lightBoard = new GameObject("LightBoard").AddComponent<BoardRenderer>();
             lightBoard.transform.SetParent(gameplayRoot.transform, false);
@@ -72,39 +114,34 @@ namespace NeonShift
             shadowBoard = new GameObject("ShadowBoard").AddComponent<BoardRenderer>();
             shadowBoard.transform.SetParent(gameplayRoot.transform, false);
             shadowBoard.transform.localPosition = new Vector3(0f, ShadowBoardY, 0f);
+            arrows = TutorialHint.Create(gameplayRoot.transform, lightBoard.transform.localPosition, shadowBoard.transform.localPosition);
 
             ui = new GameObject("GameplayUI").AddComponent<GameplayUI>();
             ui.transform.SetParent(gameplayRoot.transform, false);
-            ui.Build(LightBoardY + LabelGap, ShadowBoardY + LabelGap);
-            ui.NextPressed = NextLevel;
-            ui.ReplayPressed = RestartLevel;
-            ui.RestartPressed = RestartLevel;
-            ui.UndoPressed = UndoMove;
+            ui.Build();
+            ui.BackPressed = () => ShowScreen(playingDaily ? AppScreen.Daily : AppScreen.LevelSelect);
             ui.PausePressed = Pause;
             ui.ResumePressed = Resume;
-            ui.LevelsPressed = () => ShowScreen(AppScreen.LevelSelect);
+            ui.UndoPressed = UndoMove;
+            ui.HintPressed = RequestHint;
+            ui.HintConfirmed = ConfirmHint;
+            ui.RestartPressed = RestartLevel;
+            ui.LevelsPressed = () => ShowScreen(playingDaily ? AppScreen.Daily : AppScreen.LevelSelect);
             ui.MenuPressed = () => ShowScreen(AppScreen.MainMenu);
+            ui.NextPressed = NextLevel;
+            ui.MusicVolumeChanged = v => { SettingsData.MusicVolume = v; SettingsData.Music = v > 0.01f; Audio.ApplySettings(); };
+            ui.SoundVolumeChanged = v => { SettingsData.SoundVolume = v; SettingsData.Sound = v > 0.01f; Audio.ApplySettings(); };
 
             movement = gameObject.AddComponent<MovementManager>();
             movement.MoveFinished += OnMoveFinished;
-
-            swipe = gameObject.AddComponent<SwipeInput>();
-            swipe.Swiped += OnSwipe;
-            swipe.Tapped += OnTap;
-
-            levels = new LevelManager(LevelLoader.LoadAll());
-            if (levels.Count == 0)
-            {
-                Debug.LogError("NEON SHIFT: no levels found in Assets/Resources/Levels");
-                return;
-            }
-            ShowScreen(AppScreen.MainMenu);
         }
 
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
         }
+
+        // ---------------- Camera ----------------
 
         void SetupCamera()
         {
@@ -118,67 +155,265 @@ namespace NeonShift
             cam.orthographic = true;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = NeonTheme.Background;
-            cam.transform.position = new Vector3(0f, 0f, -10f);
             cam.transform.rotation = Quaternion.identity;
             FitCamera();
         }
 
-        /// <summary>Keeps the whole 9 x 16 layout (plus margin) visible on any portrait aspect ratio.</summary>
+        /// <summary>Fits the 9 x 17 layout inside the screen's safe area (notches, gesture bars) on any aspect ratio.</summary>
         void FitCamera()
         {
             lastScreen = new Vector2Int(Screen.width, Screen.height);
-            float aspect = Screen.height > 0 ? (float)Screen.width / Screen.height : 9f / 16f;
-            const float halfWidth = 4.75f, halfHeight = 8.5f;
-            cam.orthographicSize = Mathf.Max(halfHeight, halfWidth / aspect);
+            lastSafeArea = Screen.safeArea;
+            float sw = Mathf.Max(1f, Screen.width), sh = Mathf.Max(1f, Screen.height);
+            Rect safe = lastSafeArea.width > 0 && lastSafeArea.height > 0 ? lastSafeArea : new Rect(0, 0, sw, sh);
+            const float halfWidth = 4.75f, halfHeight = 8.6f;
+            float safeAspect = safe.width / safe.height;
+            float sizeInSafe = Mathf.Max(halfHeight, halfWidth / safeAspect);
+            cam.orthographicSize = sizeInSafe * sh / safe.height;
+            float unitsPerPixel = 2f * cam.orthographicSize / sh;
+            float offsetY = (sh * 0.5f - safe.center.y) * unitsPerPixel;
+            float offsetX = (sw * 0.5f - safe.center.x) * unitsPerPixel;
+            cam.transform.position = new Vector3(offsetX, offsetY, -10f);
         }
+
+        // ---------------- Frame loop ----------------
 
         void Update()
         {
-            if (Screen.width != lastScreen.x || Screen.height != lastScreen.y) FitCamera();
+            if (Screen.width != lastScreen.x || Screen.height != lastScreen.y || Screen.safeArea != lastSafeArea) FitCamera();
 
-            // Android back button / Escape: pause in game, go back in menus.
+            if (fadeAlpha > 0f)
+            {
+                fadeAlpha = Mathf.MoveTowards(fadeAlpha, 0f, Time.unscaledDeltaTime * 4f);
+                fader.color = NeonTheme.WithAlpha(NeonTheme.Background, fadeAlpha);
+                fader.gameObject.SetActive(fadeAlpha > 0f);
+            }
+
+            UIScreen active;
+            if (screens.TryGetValue(CurrentScreen, out active)) active.Tick();
+
             if (KeyDown(KeyCode.Escape)) Back();
-
             if (CurrentScreen != AppScreen.Gameplay) return;
-            // Keyboard shortcuts: Z / Backspace = undo, R = restart. N = skip level (Editor only).
+            // Keyboard shortcuts: Z / Backspace = undo, R = restart, H = hint. N = skip level (Editor only).
             if (KeyDown(KeyCode.Z) || KeyDown(KeyCode.Backspace)) UndoMove();
             if (KeyDown(KeyCode.R)) RestartLevel();
+            if (KeyDown(KeyCode.H)) RequestHint();
 #if UNITY_EDITOR
-            if (KeyDown(KeyCode.N)) NextLevel();
+            if (KeyDown(KeyCode.N) && !playingDaily) { Levels.MarkCurrentCompleted(); NextLevel(); }
 #endif
         }
+
+        static bool KeyDown(KeyCode key)
+        {
+#if ENABLE_INPUT_SYSTEM
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            if (kb == null) return false;
+            switch (key)
+            {
+                case KeyCode.Z: return kb.zKey.wasPressedThisFrame;
+                case KeyCode.Backspace: return kb.backspaceKey.wasPressedThisFrame;
+                case KeyCode.R: return kb.rKey.wasPressedThisFrame;
+                case KeyCode.H: return kb.hKey.wasPressedThisFrame;
+                case KeyCode.N: return kb.nKey.wasPressedThisFrame;
+                case KeyCode.Escape: return kb.escapeKey.wasPressedThisFrame;
+                default: return false;
+            }
+#elif ENABLE_LEGACY_INPUT_MANAGER
+            return Input.GetKeyDown(key);
+#else
+            return false;
+#endif
+        }
+
+        // ---------------- Navigation ----------------
 
         void Back()
         {
             switch (CurrentScreen)
             {
-                case AppScreen.LevelSelect: ShowScreen(AppScreen.MainMenu); break;
+                case AppScreen.Splash:
+                case AppScreen.MainMenu: break;
+                case AppScreen.LevelSelect: ShowScreen(AppScreen.WorldSelect); break;
                 case AppScreen.Gameplay:
                     if (State == GameState.Paused) Resume();
-                    else Pause();
+                    else if (State == GameState.Playing) Pause();
                     break;
+                default: ShowScreen(AppScreen.MainMenu); break;
             }
         }
 
         public void ShowScreen(AppScreen screen)
         {
             StopAllCoroutines();
-            if (movement != null && puzzle != null) movement.Bind(puzzle, lightBoard, shadowBoard, lightToken, shadowToken); // cancel any animation
+            if (puzzle != null) movement.Bind(puzzle, lightBoard, shadowBoard, lightToken, shadowToken); // cancel animations
             CurrentScreen = screen;
-            mainMenu.gameObject.SetActive(screen == AppScreen.MainMenu);
-            levelSelect.gameObject.SetActive(screen == AppScreen.LevelSelect);
+            foreach (var pair in screens) pair.Value.gameObject.SetActive(pair.Key == screen);
             gameplayRoot.SetActive(screen == AppScreen.Gameplay);
-
-            if (screen == AppScreen.MainMenu) mainMenu.Show(levels.TotalStars, levels.Count * 3, levels.Current);
-            if (screen == AppScreen.LevelSelect) levelSelect.Show(levels);
+            UIScreen s;
+            if (screens.TryGetValue(screen, out s)) s.OnShow();
             if (screen != AppScreen.Gameplay) State = GameState.Menu;
+            if (screen != AppScreen.Splash) { fadeAlpha = 0.6f; fader.gameObject.SetActive(true); }
+        }
+
+        public void OpenWorld(int worldId)
+        {
+            if (!Levels.IsWorldUnlocked(worldId)) return;
+            ((LevelMapScreen)screens[AppScreen.LevelSelect]).SetWorld(worldId);
+            ShowScreen(AppScreen.LevelSelect);
+        }
+
+        /// <summary>PLAY on the main menu: continue the current level.</summary>
+        public void Continue()
+        {
+            if (Levels.Count == 0) return;
+            StartLevel(Levels.CurrentIndex);
         }
 
         public void StartLevel(int index)
         {
-            levels.Select(index);
+            if (!Levels.IsUnlocked(index)) return;
+            Levels.Select(index);
+            playingDaily = false;
             ShowScreen(AppScreen.Gameplay);
-            LoadCurrentLevel();
+            LoadPuzzle(Levels.Current);
+        }
+
+        public void StartDaily()
+        {
+            playingDaily = true;
+            ShowScreen(AppScreen.Gameplay);
+            LoadPuzzle(DailyLevel);
+        }
+
+        // ---------------- Gameplay ----------------
+
+        void LoadPuzzle(LevelData level)
+        {
+            puzzle = new PuzzleState(level);
+            usedHintThisLevel = false;
+
+            lightBoard.Build(puzzle.LightBoard, NeonTheme.Light);
+            shadowBoard.Build(puzzle.ShadowBoard, NeonTheme.Shadow);
+
+            // Tokens are rebuilt with the boards (Build destroys old children).
+            lightToken = PlayerController.Create("Light", lightBoard.transform, NeonTheme.Light);
+            shadowToken = PlayerController.Create("Shadow", shadowBoard.transform, NeonTheme.Shadow);
+
+            movement.Bind(puzzle, lightBoard, shadowBoard, lightToken, shadowToken);
+            ui.ShowLevel(level, playingDaily);
+            RefreshHud();
+            arrows.Hide();
+            if (!playingDaily && !SettingsData.TutorialDone && Levels.CurrentIndex == 0)
+            {
+                List<Direction> path = PuzzleSolver.Solve(level);
+                if (path != null && path.Count > 0) arrows.Show(path[0]);
+            }
+            State = GameState.Playing;
+        }
+
+        void RefreshHud() { ui.SetMoves(puzzle); }
+
+        void OnSwipe(Direction direction)
+        {
+            if (CurrentScreen != AppScreen.Gameplay || State != GameState.Playing || movement.IsBusy) return;
+            State = GameState.Animating;
+            movement.RequestMove(direction);
+            if (!movement.IsBusy) State = GameState.Playing; // move ignored
+        }
+
+        void OnMoveFinished(MoveOutcome outcome)
+        {
+            RefreshHud();
+            if (outcome.result == MoveResult.Moved)
+            {
+                Audio.Play(Sfx.Move);
+                arrows.Hide();
+                if (!SettingsData.TutorialDone) SettingsData.TutorialDone = true;
+            }
+            else
+            {
+                Audio.Play(Sfx.Blocked);
+                Haptics.Pulse(25);
+            }
+
+            if (outcome.solvedNow) StartCoroutine(Win());
+            else if (outcome.failedNow)
+            {
+                State = GameState.Failed;
+                Audio.Play(Sfx.Fail);
+                Haptics.Pulse(60);
+                ui.ShowFailure(puzzle.MoveCount, puzzle.Level.starThresholds.threeStarsMaxMoves);
+            }
+            else State = GameState.Playing;
+        }
+
+        IEnumerator Win()
+        {
+            State = GameState.Victory;
+            Audio.Play(Sfx.Win);
+            Haptics.Pulse(50);
+            StartCoroutine(lightToken.Celebrate(0.45f));
+            yield return StartCoroutine(shadowToken.Celebrate(0.45f));
+
+            LevelData level = puzzle.Level;
+            int stars = StarManager.Calculate(level, puzzle.MoveCount);
+            int coins;
+            if (playingDaily)
+            {
+                coins = SaveManager.CompleteDaily(Today);
+            }
+            else
+            {
+                int previous = SaveManager.GetStars(level);
+                coins = Rewards.LevelCoins(previous, stars);
+                SaveManager.RecordStars(level, stars);
+                if (!usedHintThisLevel) SaveManager.MarkNoHint(level);
+                SaveManager.AddCoins(coins);
+                Levels.MarkCurrentCompleted();
+            }
+            ui.ShowVictory(puzzle.MoveCount, stars, level.starThresholds.threeStarsMaxMoves, coins, !playingDaily && Levels.IsLastLevel, playingDaily);
+        }
+
+        /// <summary>Steps back one move. Also works from the failure panel.</summary>
+        public void UndoMove()
+        {
+            if (puzzle == null || movement.IsBusy) return;
+            if (State != GameState.Playing && State != GameState.Failed) return;
+            if (!puzzle.Undo()) return;
+            Audio.Play(Sfx.Undo);
+            ui.HidePanels();
+            movement.SyncTokens();
+            RefreshHud();
+            State = GameState.Playing;
+        }
+
+        Direction pendingHint;
+
+        void RequestHint()
+        {
+            if (puzzle == null || State != GameState.Playing || movement.IsBusy) return;
+            List<Direction> path = PuzzleSolver.Solve(puzzle.Level, puzzle.LightPos, puzzle.ShadowPos);
+            if (path == null || path.Count == 0) { ui.ShowMessage("No route from here. Try Undo or Restart."); return; }
+            if (puzzle.HasMoveLimit && path.Count > puzzle.MovesLeft) { ui.ShowMessage("Too few moves left. Try Undo or Restart."); return; }
+            if (SaveManager.Hints <= 0 && SaveManager.Coins < Rewards.HintCost)
+            {
+                ui.ShowMessage("No hints left. Earn " + Rewards.HintCost + " coins for one more.");
+                return;
+            }
+            if (!SaveManager.TrySpendHint()) return;
+            usedHintThisLevel = true;
+            pendingHint = path[0];
+            string cost = SaveManager.Hints > 0 ? "(" + SaveManager.Hints + " free hints left)" : "(Next hint costs " + Rewards.HintCost + " coins)";
+            State = GameState.Paused;
+            ui.ShowHint(pendingHint, cost);
+            RefreshHud();
+        }
+
+        void ConfirmHint()
+        {
+            ui.HidePanels();
+            arrows.Show(pendingHint);
+            State = GameState.Playing;
         }
 
         public void Pause()
@@ -195,115 +430,44 @@ namespace NeonShift
             State = GameState.Playing;
         }
 
-        static bool KeyDown(KeyCode key)
-        {
-#if ENABLE_INPUT_SYSTEM
-            var kb = UnityEngine.InputSystem.Keyboard.current;
-            if (kb == null) return false;
-            switch (key)
-            {
-                case KeyCode.Z: return kb.zKey.wasPressedThisFrame;
-                case KeyCode.Backspace: return kb.backspaceKey.wasPressedThisFrame;
-                case KeyCode.R: return kb.rKey.wasPressedThisFrame;
-                case KeyCode.N: return kb.nKey.wasPressedThisFrame;
-                case KeyCode.Escape: return kb.escapeKey.wasPressedThisFrame;
-                default: return false;
-            }
-#elif ENABLE_LEGACY_INPUT_MANAGER
-            return Input.GetKeyDown(key);
-#else
-            return false;
-#endif
-        }
-
-        void LoadCurrentLevel()
-        {
-            LevelData level = levels.Current;
-            puzzle = new PuzzleState(level);
-
-            lightBoard.Build(puzzle.LightBoard, NeonTheme.Light);
-            shadowBoard.Build(puzzle.ShadowBoard, NeonTheme.Shadow);
-
-            // Tokens are rebuilt with the boards (Build destroys old children).
-            lightToken = PlayerController.Create("Light", lightBoard.transform, NeonTheme.Light);
-            shadowToken = PlayerController.Create("Shadow", shadowBoard.transform, NeonTheme.Shadow);
-
-            movement.Bind(puzzle, lightBoard, shadowBoard, lightToken, shadowToken);
-            ui.ShowLevel(level);
-            RefreshMoves();
-            State = GameState.Playing;
-        }
-
-        void OnSwipe(Direction direction)
-        {
-            if (State != GameState.Playing || movement.IsBusy) return;
-            State = GameState.Animating;
-            movement.RequestMove(direction);
-            if (!movement.IsBusy) State = GameState.Playing; // move ignored
-        }
-
-        void RefreshMoves()
-        {
-            ui.SetMoves(puzzle.MoveCount, puzzle.MaxMoves, puzzle.CanUndo);
-        }
-
-        void OnMoveFinished(MoveOutcome outcome)
-        {
-            RefreshMoves();
-            if (outcome.solvedNow) StartCoroutine(Win());
-            else if (outcome.failedNow) { State = GameState.Failed; ui.ShowFailure(); }
-            else State = GameState.Playing;
-        }
-
-        IEnumerator Win()
-        {
-            State = GameState.Victory;
-            StartCoroutine(lightToken.Celebrate(0.4f));
-            yield return StartCoroutine(shadowToken.Celebrate(0.4f));
-            int stars = StarManager.Calculate(puzzle.Level, puzzle.MoveCount);
-            SaveManager.RecordStars(puzzle.Level, stars);
-            levels.MarkCurrentCompleted();
-            ui.ShowVictory(puzzle.MoveCount, stars, puzzle.Level.starThresholds.threeStarsMaxMoves, levels.IsLastLevel);
-        }
-
-        /// <summary>Steps back one move. Also works from the failure panel.</summary>
-        public void UndoMove()
-        {
-            if (puzzle == null || movement.IsBusy) return;
-            if (State != GameState.Playing && State != GameState.Failed) return;
-            if (!puzzle.Undo()) return;
-            ui.HidePanels();
-            movement.SyncTokens();
-            RefreshMoves();
-            State = GameState.Playing;
-        }
-
         void OnTap(Vector2 screenPos)
         {
             if (State == GameState.Loading || movement.IsBusy) return;
+            Vector3 world = ScreenToWorld(screenPos);
+            UIScreen s;
+            if (CurrentScreen == AppScreen.Gameplay) ui.HandleTap(world);
+            else if (screens.TryGetValue(CurrentScreen, out s)) s.HandleTap(world);
+        }
+
+        void OnDrag(Vector2 screenPos)
+        {
+            Vector3 world = ScreenToWorld(screenPos);
+            UIScreen s;
+            if (CurrentScreen == AppScreen.Gameplay) ui.HandleDrag(world);
+            else if (screens.TryGetValue(CurrentScreen, out s)) s.HandleDrag(world);
+        }
+
+        Vector3 ScreenToWorld(Vector2 screenPos)
+        {
             Vector3 world = cam.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, -cam.transform.position.z));
             world.z = 0f;
-            switch (CurrentScreen)
-            {
-                case AppScreen.MainMenu: mainMenu.HandleTap(world); break;
-                case AppScreen.LevelSelect: levelSelect.HandleTap(world); break;
-                default: ui.HandleTap(world); break;
-            }
+            return world;
         }
 
         public void NextLevel()
         {
             StopAllCoroutines();
-            if (levels.IsLastLevel) { ShowScreen(AppScreen.LevelSelect); return; }
-            levels.Advance();
-            LoadCurrentLevel();
+            if (playingDaily) { ShowScreen(AppScreen.MainMenu); return; }
+            if (Levels.IsLastLevel) { ShowScreen(AppScreen.WorldSelect); return; }
+            Levels.Advance();
+            LoadPuzzle(Levels.Current);
         }
 
         public void RestartLevel()
         {
             if (CurrentScreen != AppScreen.Gameplay || puzzle == null) return;
             StopAllCoroutines();
-            LoadCurrentLevel();
+            LoadPuzzle(puzzle.Level);
         }
     }
 }

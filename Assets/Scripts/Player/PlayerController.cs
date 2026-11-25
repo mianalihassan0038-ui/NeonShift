@@ -19,7 +19,13 @@ namespace NeonShift
 
             pc.glow = AddSprite(go.transform, "Glow", NeonSprites.Glow, NeonTheme.WithAlpha(accentColor, 0.8f), 10, BoardRenderer.CellSize * 1.5f);
             pc.core = AddSprite(go.transform, "Core", NeonSprites.Circle, accentColor, 11, BoardRenderer.CellSize * 0.8f);
-            AddSprite(go.transform, "Highlight", NeonSprites.Circle, NeonTheme.WithAlpha(Color.white, 0.85f), 12, BoardRenderer.CellSize * 0.28f);
+            // Two eyes make the orbs read as characters, like the mockups.
+            var eyeL = AddSprite(go.transform, "EyeL", NeonSprites.Circle, NeonTheme.Background, 12, BoardRenderer.CellSize * 0.12f);
+            eyeL.transform.localPosition = new Vector3(-0.11f, 0.05f, 0f);
+            eyeL.transform.localScale = new Vector3(0.11f, 0.16f, 1f);
+            var eyeR = AddSprite(go.transform, "EyeR", NeonSprites.Circle, NeonTheme.Background, 12, BoardRenderer.CellSize * 0.12f);
+            eyeR.transform.localPosition = new Vector3(0.11f, 0.05f, 0f);
+            eyeR.transform.localScale = new Vector3(0.11f, 0.16f, 1f);
             return pc;
         }
 

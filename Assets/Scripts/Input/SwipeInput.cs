@@ -13,6 +13,8 @@ namespace NeonShift
     {
         public event Action<Direction> Swiped;
         public event Action<Vector2> Tapped;
+        /// <summary>Pointer position every frame while pressed (used by sliders).</summary>
+        public event Action<Vector2> Dragging;
 
         bool tracking;
         bool consumed;      // swipe already fired for this gesture
@@ -44,6 +46,7 @@ namespace NeonShift
 
         void Drag(Vector2 pos)
         {
+            if (tracking && !cancelled && Dragging != null) Dragging(pos);
             if (!tracking || consumed || cancelled) return;
             Vector2 delta = pos - startPos;
             if (delta.magnitude < Threshold) return;

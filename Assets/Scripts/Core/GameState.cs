@@ -13,8 +13,14 @@ namespace NeonShift
 
     public enum AppScreen
     {
+        Splash,
         MainMenu,
-        LevelSelect,
-        Gameplay
+        WorldSelect,
+        LevelSelect,   // world map
+        Gameplay,
+        Daily,
+        Achievements,
+        Settings,
+        Profile
     }
 }
