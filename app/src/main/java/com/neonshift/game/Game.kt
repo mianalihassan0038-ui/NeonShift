@@ -120,9 +120,9 @@ class Game(
 
     private fun header(ui: Ui, title: String, onBack: () -> Unit) {
         val y = ui.halfH - 0.85f
-        ui.button("←", -ui.halfW + 0.75f, y, 1.0f, 1.0f, Neon.LIGHT, Style.ROUND, onClick = onBack)
-        ui.text(title, -0.3f, y, 0.58f, Neon.TEXT)
-        ui.coins(ui.halfW - 1.75f, y, 0.4f, save.coins)
+        ui.button("←", -ui.halfW + 0.75f, y, 1.05f, 1.05f, Neon.LIGHT, Style.ROUND, onClick = onBack)
+        ui.text(title, -0.2f, y, 0.6f, Neon.TEXT)
+        ui.coins(ui.halfW - 2.05f, y, 0.38f, save.coins)
     }
 
     private fun splash(ui: Ui) {
@@ -136,9 +136,7 @@ class Game(
         ui.character(-1.0f, -1.2f + bob, skin.light)
         ui.character(1.0f, -1.2f - bob, skin.shadow)
         val t = (screenTime / duration).coerceIn(0f, 1f)
-        ui.rrect(0f, -5.6f, 5.5f, 0.32f, Neon.a(Neon.TEXT, 0.15f), 0.16f)
-        val w = 5.3f * t
-        if (w > 0.02f) ui.rrect(-2.65f + w / 2, -5.6f, w, 0.18f, Neon.LIGHT, 0.09f)
+        ui.bar(0f, -5.6f, 5.5f, 0.3f, t, Neon.LIGHT)
         ui.text("Loading... ${(t * 100).toInt()}%", 0f, -6.3f, 0.34f, Neon.TEXT)
         ui.text("v$versionName", 0f, -7.1f, 0.28f, Neon.a(Neon.TEXT, 0.5f))
         if (t >= 1f) {
@@ -151,38 +149,76 @@ class Game(
         if (!loginChecked && save.highestUnlockedIndex >= 4) { loginChecked = true; if (save.loginAvailable(today)) { loginOpen = true; loginClaimed = 0 } }
         ui.background(skin.light, skin.shadow)
         val top = ui.halfH - 0.85f
-        ui.button("", -ui.halfW + 0.75f, top, 1.0f, 1.0f, Neon.ENERGY, Style.ROUND) { show(AppScreen.PROFILE) }
-        ui.character(-ui.halfW + 0.75f, top, skin.shadow, 0.7f)
-        ui.coins(-1.6f, top, 0.42f, save.coins)
-        ui.circle(1.25f, top, 0.6f, Neon.ENERGY)
-        ui.text("?", 1.25f, top, 0.36f, Neon.BG)
-        ui.text(save.hints.toString(), 1.7f, top, 0.42f, Neon.TEXT, Align.LEFT)
-        ui.button("", ui.halfW - 0.75f, top, 1.0f, 1.0f, Neon.LIGHT, Style.ROUND) { show(AppScreen.SETTINGS) }
-        gear(ui, ui.halfW - 0.75f, top, 0.56f, Neon.LIGHT)
+        // Top bar: profile, coins and hints on the left, achievements and settings on the right.
+        ui.button("", -ui.halfW + 0.75f, top, 1.05f, 1.05f, skin.shadow, Style.ROUND) { show(AppScreen.PROFILE) }
+        ui.character(-ui.halfW + 0.75f, top, skin.shadow, 0.68f)
+        ui.coins(-ui.halfW + 2.05f, top, 0.4f, save.coins)
+        ui.button("", ui.halfW - 2.0f, top, 1.05f, 1.05f, Neon.ENERGY, Style.ROUND, icon = "trophy") { show(AppScreen.ACHIEVEMENTS) }
+        ui.button("", ui.halfW - 0.75f, top, 1.05f, 1.05f, Neon.LIGHT, Style.ROUND, icon = "gear") { show(AppScreen.SETTINGS) }
+        xpRow(ui, ui.halfH - 2.05f)
 
-        xpRow(ui, ui.halfH - 1.9f)
-        ui.logo(5.4f, 1.45f)
-        val bob = sin(ui.time * 2.2f) * 0.12f
-        ui.character(-3.3f, 3.0f + bob, skin.light, 0.8f)
-        ui.character(3.3f, 3.0f - bob, skin.shadow, 0.8f)
-        val k = 1f + 0.06f * sin(ui.time * 2.5f)
-        ui.glow(0f, 2.3f, 5.5f * k, 4.5f * k, Neon.a(skin.light, 0.45f))
-        ui.button("▶  PLAY", 0f, 2.3f, 4.6f, 1.8f, skin.light, labelSize = 0.75f) { continueGame() }
-        levels.current?.let { ui.text("World ${it.worldId}  ·  Level ${it.levelId}", 0f, 1.05f, 0.3f, Neon.a(Neon.TEXT, 0.6f)) }
+        ui.logo(4.9f, 1.55f)
+        // The two heroes on a glowing ring.
+        val bob = sin(ui.time * 2.2f) * 0.1f
+        ui.glow(0f, 1.25f, 6.5f, 2.2f, Neon.a(skin.shadow, 0.35f))
+        ui.ring(0f, 1.15f, 4.4f, 1.0f, Neon.a(skin.light, 0.8f), 0.08f)
+        ui.ring(0f, 1.15f, 3.6f, 0.75f, Neon.a(skin.light, 0.3f), 0.05f)
+        ui.character(-0.85f, 1.75f + bob, skin.light, 1.15f)
+        ui.character(0.85f, 1.75f - bob, skin.shadow, 1.15f)
 
+        playButton(ui, 0f, -1.35f, skin.light) { continueGame() }
+        levels.current?.let { ui.text("World ${it.worldId}  ·  Level ${it.levelId}", 0f, -2.85f, 0.34f, Neon.a(Neon.TEXT, 0.7f)) }
+
+        // Four modes as calm icon tiles.
         val dailyOn = save.unlocked(Unlocks.DAILY_LEVEL)
         val taOn = save.unlocked(Unlocks.TIME_ATTACK_LEVEL)
-        ui.button(if (dailyOn) "Daily" else "Daily  🔒", -1.95f, -0.4f, 3.7f, 1.35f, Neon.PINK, enabled = dailyOn) { show(AppScreen.DAILY) }
-        if (dailyOn) ui.text(if (dailyDoneToday) "✓" else "NEW", -0.55f, 0.1f, 0.28f, Neon.ENERGY)
-        else ui.text("Unlocks at Lv ${Unlocks.DAILY_LEVEL}", -1.95f, -1.35f, 0.26f, Neon.a(Neon.TEXT, 0.6f))
-        ui.button(if (taOn) "Time Attack" else "Time Attack 🔒", 1.95f, -0.4f, 3.7f, 1.35f, Neon.ENERGY, enabled = taOn) { show(AppScreen.TIME_ATTACK) }
-        if (!taOn) ui.text("Unlocks at Lv ${Unlocks.TIME_ATTACK_LEVEL}", 1.95f, -1.35f, 0.26f, Neon.a(Neon.TEXT, 0.6f))
-        else if (save.timeAttackBest > 0) ui.text("Best ${save.timeAttackBest}", 1.95f, -1.35f, 0.26f, Neon.a(Neon.TEXT, 0.6f))
-        ui.button("Worlds", -1.95f, -2.3f, 3.7f, 1.35f, Neon.LIGHT) { show(AppScreen.WORLD_SELECT) }
-        ui.button("Shop", 1.95f, -2.3f, 3.7f, 1.35f, Neon.SUCCESS) { show(AppScreen.SHOP) }
-        ui.button("Achievements", 0f, -4.1f, 7.6f, 1.2f, Neon.SHADOW) { show(AppScreen.ACHIEVEMENTS) }
-        ui.text("Think. Solve. Conquer.", 0f, -ui.halfH + 0.8f, 0.28f, Neon.a(Neon.TEXT, 0.4f))
+        val ty = -4.75f
+        modeTile(ui, -3.3f, ty, "calendar", "Daily", Neon.PINK, dailyOn, Unlocks.DAILY_LEVEL, if (dailyOn && !dailyDoneToday) "NEW" else null) { show(AppScreen.DAILY) }
+        modeTile(ui, -1.1f, ty, "clock", "Time", Neon.ENERGY, taOn, Unlocks.TIME_ATTACK_LEVEL, null) { show(AppScreen.TIME_ATTACK) }
+        modeTile(ui, 1.1f, ty, "grid", "Worlds", Neon.LIGHT, true, 0, null) { show(AppScreen.WORLD_SELECT) }
+        modeTile(ui, 3.3f, ty, "bag", "Shop", Neon.SUCCESS, true, 0, null) { show(AppScreen.SHOP) }
         if (loginOpen) loginPanel(ui)
+    }
+
+    /** Big glowing hexagon Play button. */
+    private fun playButton(ui: Ui, x: Float, y: Float, accent: Int, onClick: () -> Unit) {
+        val k = 1f + 0.035f * sin(ui.time * 2.6f)
+        val pressed = ui.pressedId == "play" && ui.time - ui.pressedAt < 0.12f
+        val s = (if (pressed) 0.93f else 1f) * k
+        fun hex(r: Float, dy: Float = 0f): FloatArray {
+            val pts = FloatArray(12)
+            for (i in 0 until 6) {
+                val a = Math.toRadians(30.0 + i * 60.0)
+                pts[i * 2] = x + (Math.cos(a) * r * 1.12f).toFloat()
+                pts[i * 2 + 1] = y + dy + (Math.sin(a) * r).toFloat()
+            }
+            return pts
+        }
+        ui.glow(x, y, 6.2f * s, 5.0f * s, Neon.a(accent, 0.4f))
+        ui.poly(hex(1.45f * s, -0.12f), Neon.a(0xFF000000.toInt(), 0.35f))
+        ui.poly(hex(1.45f * s), Neon.lighten(accent, 0.25f))
+        ui.poly(hex(1.33f * s), Neon.darken(accent, 0.25f))
+        ui.poly(hex(1.25f * s), Neon.lerp(0xFF1B2A7A.toInt(), accent, 0.35f))
+        ui.poly(hex(1.05f * s, 0.12f), Neon.a(0xFFFFFFFF.toInt(), 0.06f))
+        ui.icon("play", x + 0.08f, y + 0.25f * s, 0.95f * s, Neon.TEXT)
+        ui.text("PLAY", x, y - 0.55f * s, 0.55f * s, Neon.TEXT, logo = true)
+        ui.hits += Ui.Hit(x - 1.6f, y - 1.45f, x + 1.6f, y + 1.45f, "play", onClick, null)
+    }
+
+    private fun modeTile(ui: Ui, x: Float, y: Float, icon: String, label: String, accent: Int, on: Boolean, lockLevel: Int, badge: String?, onClick: () -> Unit) {
+        ui.button("", x, y, 1.95f, 2.05f, accent, Style.OUTLINE, enabled = on, onClick = onClick)
+        if (on) {
+            ui.glow(x, y + 0.3f, 1.4f, 1.4f, Neon.a(accent, 0.35f))
+            ui.icon(icon, x, y + 0.3f, 0.85f, accent)
+            ui.text(label, x, y - 0.55f, 0.36f, Neon.TEXT)
+        } else {
+            ui.icon("lock", x, y + 0.3f, 0.75f, Neon.a(Neon.TEXT, 0.55f))
+            ui.text("Lv $lockLevel", x, y - 0.55f, 0.34f, Neon.a(Neon.TEXT, 0.6f))
+        }
+        if (badge != null) {
+            ui.grad(x + 0.62f, y + 0.92f, 0.9f, 0.42f, Neon.lighten(Neon.BLOCKED, 0.2f), Neon.darken(Neon.BLOCKED, 0.15f), 0.21f)
+            ui.text(badge, x + 0.62f, y + 0.92f, 0.26f, Neon.TEXT)
+        }
     }
 
     private fun closeLogin() { loginOpen = false }
@@ -190,14 +226,12 @@ class Game(
     /** Player level, XP bar and the next reward to play for. */
     private fun xpRow(ui: Ui, y: Float) {
         val (lv, into, need) = Rewards.levelInfo(save.xp)
-        ui.text("Lv $lv", -ui.halfW + 0.4f, y, 0.4f, Neon.SUCCESS, Align.LEFT, logo = true)
-        val x0 = -ui.halfW + 1.55f
-        val w = 3.6f
-        ui.rrect(x0 + w / 2, y, w, 0.28f, Neon.a(Neon.TEXT, 0.12f), 0.14f)
-        val f = (into.toFloat() / need).coerceIn(0f, 1f)
-        if (f > 0.01f) ui.rrect(x0 + w * f / 2, y, w * f, 0.28f, Neon.SUCCESS, 0.14f)
+        val w = 6.0f
+        ui.bar(0.45f, y, w, 0.32f, into.toFloat() / need, Neon.SUCCESS)
+        ui.gradCircle(-2.95f, y, 0.95f, Neon.lighten(Neon.SUCCESS, 0.3f), Neon.darken(Neon.SUCCESS, 0.3f))
+        ui.text(lv.toString(), -2.95f, y, 0.46f, Neon.TEXT, logo = true)
         val next = Unlocks.next(lv)
-        ui.text(next?.let { "Lv ${it.level}: ${it.label}" } ?: "Everything unlocked!", x0 + w + 0.25f, y, 0.26f, Neon.a(Neon.ENERGY, 0.85f), Align.LEFT)
+        ui.text(next?.let { "Next at Lv ${it.level}:  ${it.label}" } ?: "Everything unlocked!", 0.45f, y - 0.52f, 0.3f, Neon.a(Neon.TEXT, 0.7f))
     }
 
     private fun loginPanel(ui: Ui) {
@@ -217,15 +251,14 @@ class Game(
             val isToday = i == day
             val accent = when { isToday -> Neon.ENERGY; done -> Neon.SUCCESS; else -> Neon.BLUE }
             if (isToday && !claimedToday) ui.glow(x, y, 2.6f, 2.8f, Neon.a(Neon.ENERGY, 0.35f + 0.2f * sin(ui.time * 4f)))
-            ui.rrect(x, y, 1.65f, 2.0f, accent, 0.25f)
-            ui.rrect(x, y, 1.55f, 1.9f, Neon.PANEL, 0.22f)
+            ui.grad(x, y, 1.65f, 2.0f, Neon.lighten(accent, 0.2f), Neon.darken(accent, 0.3f), 0.3f)
+            ui.grad(x, y, 1.55f, 1.9f, Neon.lerp(Neon.PANEL, accent, 0.25f), Neon.darken(Neon.PANEL, 0.3f), 0.26f)
             ui.text(if (i == 7) "DAY 7" else "Day $i", x, y + 0.65f, 0.28f, Neon.a(Neon.TEXT, 0.8f))
             if (done) {
                 ui.circle(x, y, 0.8f, Neon.a(Neon.SUCCESS, 0.9f))
                 ui.text("✓", x, y, 0.5f, Neon.BG)
             } else {
-                ui.circle(x, y, 0.7f, Neon.ENERGY)
-                ui.ring(x, y, 0.48f, 0.48f, Neon.a(Neon.BG, 0.35f), 0.06f)
+                ui.coin(x, y, 0.72f)
             }
             ui.text(Rewards.loginReward(i).toString(), x, y - 0.65f, 0.3f, Neon.TEXT)
         }
@@ -273,7 +306,8 @@ class Game(
             ui.button("", 0f, y, 7.6f, 2.3f, color, enabled = unlocked) { openWorld(id) }
             val dimA = if (unlocked) 0.9f else 0.35f
             ui.glow(-2.4f, y, 2.4f, 2.4f, Neon.a(color, dimA))
-            ui.circle(-2.4f, y, 1.0f, Neon.a(color, dimA))
+            ui.sphere(-2.4f, y, 1.25f, 1.25f, if (unlocked) color else Neon.lerp(color, 0xFF2A2458.toInt(), 0.7f))
+            if (!unlocked) ui.icon("lock", -2.4f, y, 0.6f, Neon.a(Neon.TEXT, 0.7f))
             ui.text("$id. ${worldNames[i]}", -0.9f, y + 0.5f, 0.5f, Neon.a(Neon.TEXT, if (unlocked) 1f else 0.6f), Align.LEFT)
             ui.text(worldMechanics[i], -0.9f, y - 0.05f, 0.32f, Neon.a(color, if (unlocked) 1f else 0.5f), Align.LEFT)
             val sub = when {
@@ -333,7 +367,7 @@ class Game(
         cellOffset(lb, lb.start, 0.62f).let { ui.character(-2.0f + it.first, 3.2f + it.second, skin.light, 0.56f) }
         cellOffset(sb, sb.start, 0.62f).let { ui.character(2.0f + it.first, 3.2f + it.second, skin.shadow, 0.56f) }
         ui.text("Reward:", 0f, -0.4f, 0.42f, Neon.TEXT)
-        ui.circle(-0.85f, -1.2f, 0.75f, Neon.ENERGY)
+        ui.coin(-0.85f, -1.2f, 0.75f)
         ui.ring(-0.85f, -1.2f, 0.51f, 0.51f, Neon.a(Neon.BG, 0.35f), 0.07f)
         ui.text("+${Rewards.DAILY_COINS}", -0.34f, -1.2f, 0.6f, Neon.TEXT, Align.LEFT)
         val done = dailyDoneToday
@@ -359,8 +393,7 @@ class Game(
             ui.text(a.description, -2.95f, y - 0.08f * k, 0.27f * k, Neon.a(Neon.TEXT, 0.7f), Align.LEFT)
             val w = 4.6f
             val t = (a.progress.toFloat() / a.goal).coerceIn(0f, 1f)
-            ui.rrect(-2.95f + w / 2, y - 0.43f * k, w, 0.13f, Neon.a(Neon.TEXT, 0.12f), 0.065f)
-            if (t > 0f) ui.rrect(-2.95f + w * t / 2, y - 0.43f * k, w * t, 0.13f, accent, 0.065f)
+            ui.bar(-2.95f + w / 2, y - 0.43f * k, w, 0.15f, t, accent)
             ui.text("${a.progress}/${a.goal}", 4.0f, y - 0.43f * k, 0.27f * k, Neon.TEXT, Align.RIGHT)
         }
     }
@@ -409,7 +442,7 @@ class Game(
                 equipped -> ui.text("EQUIPPED", x, y - 0.85f, 0.26f, Neon.ENERGY)
                 owned -> ui.text("Tap to equip", x, y - 0.85f, 0.26f, Neon.a(Neon.TEXT, 0.6f))
                 else -> {
-                    ui.circle(x - 0.45f, y - 0.85f, 0.3f, Neon.ENERGY)
+                    ui.coin(x - 0.45f, y - 0.85f, 0.34f)
                     ui.text(s.price.toString(), x - 0.22f, y - 0.85f, 0.28f, if (save.coins >= s.price) Neon.TEXT else Neon.BLOCKED, Align.LEFT)
                 }
             }
@@ -464,9 +497,7 @@ class Game(
         val totalStars = levels.totalStars
         val (lv, into, need) = Rewards.levelInfo(save.xp)
         ui.text("Level $lv", 0f, 1.55f, 0.42f, Neon.LIGHT)
-        ui.rrect(0f, 0.85f, 5.5f, 0.32f, Neon.a(Neon.TEXT, 0.15f), 0.16f)
-        val w = 5.3f * into / need
-        if (w > 0.02f) ui.rrect(-2.65f + w / 2, 0.85f, w, 0.18f, Neon.LIGHT, 0.09f)
+        ui.bar(0f, 0.85f, 5.5f, 0.3f, into.toFloat() / need, Neon.SUCCESS)
         ui.text("$into / $need XP" + (Unlocks.next(lv)?.let { "   ·   Lv ${it.level}: ${it.label}" } ?: ""), 0f, 0.3f, 0.28f, Neon.a(Neon.TEXT, 0.7f))
         stat(ui, "Completed", -2.65f, p.levelsCompleted)
         stat(ui, "Stars", 0f, totalStars)

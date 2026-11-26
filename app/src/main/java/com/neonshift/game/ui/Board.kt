@@ -45,9 +45,12 @@ fun drawBoard(ui: Ui, board: BoardState, accent: Int, bx: Float, by: Float, scal
     val w = board.width * c
     val h = board.height * c
     val t = ui.time
-    ui.glow(bx, by, w * 1.6f, h * 1.6f, Neon.a(accent, 0.12f))
-    ui.rrect(bx, by, w + 0.28f * scale, h + 0.28f * scale, Neon.a(accent, 0.65f), 0.3f * scale)
-    ui.rrect(bx, by, w + 0.16f * scale, h + 0.16f * scale, Neon.PANEL, 0.26f * scale)
+    val fw = w + 0.28f * scale
+    val fh = h + 0.28f * scale
+    ui.dropShadow(bx, by, fw, fh, 0.36f * scale)
+    ui.glow(bx, by, w * 1.35f, h * 1.35f, Neon.a(accent, 0.16f))
+    ui.grad(bx, by, fw, fh, Neon.lighten(accent, 0.35f), Neon.darken(accent, 0.15f), 0.36f * scale)
+    ui.grad(bx, by, w + 0.14f * scale, h + 0.14f * scale, 0xFF120E3A.toInt(), 0xFF0A0826.toInt(), 0.3f * scale)
     val gatesOpen = puzzle?.gatesOpen ?: false
     val coresLeft = puzzle?.coresLeft(isLight) ?: board.data.cores.size
     for (y in 0 until board.height) for (x in 0 until board.width) {
@@ -58,17 +61,14 @@ fun drawBoard(ui: Ui, board: BoardState, accent: Int, bx: Float, by: Float, scal
         val tile = c * 0.9f
         val r = 0.18f * scale
         if (puzzle != null && puzzle.isBroken(isLight, p)) {
-            ui.rrect(cx, cy, tile, tile, 0xFF05070F.toInt(), r)
-            ui.rrectStroke(cx, cy, tile * 0.8f, tile * 0.8f, Neon.a(Neon.BLOCKED, 0.25f), 0.04f * scale, r)
+            ui.rrect(cx, cy, tile, tile, 0xFF04030F.toInt(), r)
+            ui.rrectStroke(cx, cy, tile * 0.86f, tile * 0.86f, Neon.a(Neon.BLOCKED, 0.22f), 0.04f * scale, r)
             continue
         }
         when (board.tile(p)) {
-            TileType.WALL -> {
-                ui.rrect(cx, cy, tile, tile, Neon.wall(accent), r)
-                ui.rrect(cx, cy + c * 0.18f, c * 0.7f, c * 0.3f, Neon.a(accent, 0.14f), 0.1f * scale)
-            }
+            TileType.WALL -> block(ui, cx, cy, tile, r, Neon.lerp(Neon.darken(accent, 0.35f), 0xFF2A2070.toInt(), 0.35f))
             TileType.EXIT -> {
-                ui.rrect(cx, cy, tile, tile, Neon.EMPTY, r)
+                floor(ui, cx, cy, tile, r)
                 val locked = coresLeft > 0
                 val a = if (locked) 0.12f else 0.30f + 0.20f * sin(t * 3f)
                 ui.glow(cx, cy, c * 1.5f, c * 1.5f, Neon.a(accent, a))
@@ -81,7 +81,7 @@ fun drawBoard(ui: Ui, board: BoardState, accent: Int, bx: Float, by: Float, scal
                 }
             }
             TileType.CORE -> {
-                ui.rrect(cx, cy, tile, tile, Neon.EMPTY, r)
+                floor(ui, cx, cy, tile, r)
                 val has = puzzle?.hasCore(isLight, p) ?: true
                 if (has) {
                     val bob = sin(t * 3f + x + y) * 0.04f * scale
@@ -90,7 +90,7 @@ fun drawBoard(ui: Ui, board: BoardState, accent: Int, bx: Float, by: Float, scal
                 }
             }
             TileType.PORTAL -> {
-                ui.rrect(cx, cy, tile, tile, Neon.EMPTY, r)
+                floor(ui, cx, cy, tile, r)
                 val pc = 0xFFFF8A3D.toInt()
                 ui.glow(cx, cy, c * 1.1f, c * 1.1f, Neon.a(pc, 0.45f))
                 for (i in 0 until 3) {
@@ -101,7 +101,7 @@ fun drawBoard(ui: Ui, board: BoardState, accent: Int, bx: Float, by: Float, scal
                 ui.circle(cx, cy, c * 0.14f, 0xFFFFFFFF.toInt())
             }
             TileType.SWITCH -> {
-                ui.rrect(cx, cy, tile, tile, Neon.EMPTY, r)
+                floor(ui, cx, cy, tile, r)
                 val sc = if (gatesOpen) Neon.SUCCESS else Neon.PINK
                 ui.glow(cx, cy, c * 0.9f, c * 0.9f, Neon.a(sc, 0.35f))
                 ui.circle(cx, cy, c * 0.56f, Neon.a(sc, 0.9f))
@@ -110,26 +110,39 @@ fun drawBoard(ui: Ui, board: BoardState, accent: Int, bx: Float, by: Float, scal
             }
             TileType.GATE -> {
                 if (gatesOpen) {
-                    ui.rrect(cx, cy, tile, tile, Neon.EMPTY, r)
+                    floor(ui, cx, cy, tile, r)
                     ui.rrectStroke(cx, cy, tile * 0.86f, tile * 0.86f, Neon.a(Neon.SUCCESS, 0.45f), 0.04f * scale, r)
                 } else {
-                    ui.rrect(cx, cy, tile, tile, Neon.a(Neon.PINK, 0.22f), r)
+                    block(ui, cx, cy, tile, r, Neon.darken(Neon.PINK, 0.35f))
                     for (i in -1..1) ui.box(cx + i * c * 0.24f, cy, c * 0.08f, tile * 0.86f, Neon.PINK)
                     ui.box(cx, cy + tile * 0.32f, tile * 0.8f, c * 0.06f, Neon.PINK)
                     ui.box(cx, cy - tile * 0.32f, tile * 0.8f, c * 0.06f, Neon.PINK)
                 }
             }
             TileType.CRUMBLE -> {
-                ui.rrect(cx, cy, tile, tile, 0xFF2A2338.toInt(), r)
+                ui.grad(cx, cy, tile, tile, 0xFF3A2F55.toInt(), 0xFF251C3A.toInt(), r)
                 val cr = Neon.a(0xFFFFB13B.toInt(), 0.55f)
                 ui.line(cx - tile * 0.3f, cy + tile * 0.25f, cx, cy, 0.035f * scale, cr)
                 ui.line(cx, cy, cx + tile * 0.12f, cy + tile * 0.32f, 0.035f * scale, cr)
                 ui.line(cx, cy, cx + tile * 0.28f, cy - tile * 0.28f, 0.035f * scale, cr)
                 ui.line(cx, cy, cx - tile * 0.2f, cy - tile * 0.3f, 0.035f * scale, cr)
             }
-            TileType.EMPTY -> ui.rrect(cx, cy, tile, tile, Neon.EMPTY, r)
+            TileType.EMPTY -> floor(ui, cx, cy, tile, r)
         }
     }
+}
+
+/** Flat floor tile with a soft top-lit gradient. */
+private fun floor(ui: Ui, x: Float, y: Float, t: Float, r: Float) {
+    ui.grad(x, y, t, t, 0xFF262F6E.toInt(), 0xFF1A2050.toInt(), r)
+    ui.rrect(x, y + t * 0.36f, t * 0.6f, t * 0.05f, Neon.a(Neon.WHITE, 0.06f), t * 0.025f)
+}
+
+/** Raised glossy block. */
+private fun block(ui: Ui, x: Float, y: Float, t: Float, r: Float, color: Int) {
+    ui.rrect(x, y - t * 0.07f, t, t, Neon.darken(color, 0.55f), r)
+    ui.grad(x, y + t * 0.02f, t, t * 0.96f, Neon.lighten(color, 0.15f), Neon.darken(color, 0.2f), r)
+    ui.rrect(x, y + t * 0.24f, t * 0.72f, t * 0.22f, Neon.a(Neon.WHITE, 0.16f), t * 0.1f)
 }
 
 private fun diamond(ui: Ui, x: Float, y: Float, size: Float, color: Int, spin: Float) {
@@ -235,14 +248,18 @@ class Token(var accent: Int) {
         // Squash and stretch along the move direction.
         val sx = 1f + 0.22f * stretch * kotlin.math.abs(dirX) - 0.12f * stretch * kotlin.math.abs(dirY)
         val sy = 1f + 0.22f * stretch * kotlin.math.abs(dirY) - 0.12f * stretch * kotlin.math.abs(dirX)
-        ui.ellipse(px, py, CELL * 0.8f * s * sx, CELL * 0.8f * s * sy, color)
-        ui.circle(px - 0.1f * s, py + 0.16f * s, CELL * 0.22f * s, Neon.a(0xFFFFFFFF.toInt(), 0.3f))
+        ui.ellipse(px, py - 0.34f * s, CELL * 0.62f * s, CELL * 0.18f * s, Neon.a(0xFF000000.toInt(), 0.3f))
+        ui.sphere(px, py, CELL * 0.8f * s * sx, CELL * 0.8f * s * sy, color)
         // Eyes look where the token is going, and blink now and then.
         val lookX = dirX * 0.05f * s
         val lookY = dirY * 0.04f * s
         val blink = if ((ui.time + accent % 7) % 3.7f < 0.12f) 0.25f else 1f
-        ui.ellipse(px - 0.11f * s + lookX, py + 0.05f * s + lookY, 0.11f * s, 0.16f * s * blink, Neon.BG)
-        ui.ellipse(px + 0.11f * s + lookX, py + 0.05f * s + lookY, 0.11f * s, 0.16f * s * blink, Neon.BG)
+        ui.ellipse(px - 0.12f * s + lookX, py + 0.05f * s + lookY, 0.12f * s, 0.18f * s * blink, 0xFF0B0A2A.toInt())
+        ui.ellipse(px + 0.12f * s + lookX, py + 0.05f * s + lookY, 0.12f * s, 0.18f * s * blink, 0xFF0B0A2A.toInt())
+        if (blink > 0.5f) {
+            ui.circle(px - 0.1f * s + lookX, py + 0.1f * s + lookY, 0.045f * s, Neon.a(0xFFFFFFFF.toInt(), 0.9f))
+            ui.circle(px + 0.14f * s + lookX, py + 0.1f * s + lookY, 0.045f * s, Neon.a(0xFFFFFFFF.toInt(), 0.9f))
+        }
     }
 }
 

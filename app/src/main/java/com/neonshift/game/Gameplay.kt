@@ -664,27 +664,25 @@ class Gameplay(private val game: Game) {
             ui.button("»", 0f, by, 1.0f, 1.0f, Neon.ENERGY, Style.ROUND, caption = "Skip -10s") { skipPuzzle() }
         } else {
             ui.button("?", 0f, by, 1.0f, 1.0f, Neon.ENERGY, Style.ROUND, caption = "Hint") { requestHint() }
-            ui.circle(0.48f, by + 0.43f, 0.4f, Neon.ENERGY)
-            ui.text(if (game.save.hints > 0) game.save.hints.toString() else "$", 0.48f, by + 0.43f, 0.26f, Neon.BG)
+            ui.gradCircle(0.45f, by + 0.42f, 0.44f, Neon.lighten(Neon.BLOCKED, 0.2f), Neon.darken(Neon.BLOCKED, 0.2f))
+            ui.text(if (game.save.hints > 0) game.save.hints.toString() else "$", 0.45f, by + 0.42f, 0.28f, Neon.TEXT)
         }
         ui.button("↻", 2.6f, by, 1.0f, 1.0f, colorS, Style.ROUND, caption = "Restart") { restart() }
     }
 
     private fun pausePanel(ui: Ui) {
         ui.dim()
-        ui.card(0f, 0.2f, 7.4f, 10.6f, colorS)
-        ui.card(0f, -0.1f, 6.2f, 8.6f, colorL, 0.95f)
-        ui.rrect(-1.4f, 5.35f, 3.8f, 1.1f, colorS)
-        ui.rrect(-1.4f, 5.35f, 3.7f, 1.0f, Neon.PANEL)
-        ui.text("PAUSE", -1.4f, 5.35f, 0.7f, colorL)
-        ui.button("×", 2.95f, 5.35f, 1.1f, 1.1f, colorL, labelSize = 0.7f) { resume() }
-        val labels = listOf("CONTINUE", "REPLAY", if (mode == PlayMode.LEVEL) "LEVEL SELECT" else "QUIT", "MAIN MENU")
-        val actions = listOf({ resume() }, { restart(); resume() }, { exitToList() }, { game.show(AppScreen.MAIN_MENU) })
-        for (i in labels.indices) ui.button(labels[i], 0f, 2.9f - i * 1.4f, 4.6f, 1.05f, Neon.PINK, onClick = actions[i])
-        ui.glow(0f, -2.75f, 4.5f, 0.15f, colorL)
+        ui.card(0f, -0.1f, 7.2f, 10.4f, colorS)
+        ui.icon("pause", 0f, 4.35f, 0.7f, colorL)
+        ui.text("Paused", 0f, 3.75f, 0.7f, Neon.TEXT)
+        ui.button("×", 2.9f, 4.4f, 0.95f, 0.95f, colorS, Style.ROUND) { resume() }
+        ui.button("Resume", 0f, 2.6f, 5.0f, 1.15f, Neon.SUCCESS, Style.FILLED, icon = "play") { resume() }
+        ui.button("Restart", 0f, 1.25f, 5.0f, 1.0f, Neon.BLUE, icon = "restart") { restart(); resume() }
+        ui.button(if (mode == PlayMode.LEVEL) "Level Select" else "Quit", 0f, 0.05f, 5.0f, 1.0f, Neon.BLUE, icon = "grid") { exitToList() }
+        ui.button("Home", 0f, -1.15f, 5.0f, 1.0f, Neon.BLUE, icon = "home") { game.show(AppScreen.MAIN_MENU) }
         val save = game.save
-        ui.slider("Music", 0.8f, -3.5f, 3.4f, save.musicVolume, colorL) { save.musicVolume = it; save.music = it > 0.01f; game.sound?.applySettings() }
-        ui.slider("Sound", 0.8f, -4.35f, 3.4f, save.soundVolume, colorL) { save.soundVolume = it; save.sound = it > 0.01f }
+        ui.slider("Music", 0.8f, -2.75f, 3.4f, save.musicVolume, colorL) { save.musicVolume = it; save.music = it > 0.01f; game.sound?.applySettings() }
+        ui.slider("Sound", 0.8f, -3.8f, 3.4f, save.soundVolume, colorL) { save.soundVolume = it; save.sound = it > 0.01f }
     }
 
     private fun easeOutBack(t: Float): Float {
@@ -716,7 +714,7 @@ class Gameplay(private val game: Game) {
                 ui.star(x, y, size * k, Neon.ENERGY)
             }
         }
-        ui.rrect(0f, 3.05f, 6.8f, 1.1f, Neon.ORANGE)
+        ui.ribbon(0f, 3.05f, 6.6f, 1.15f, Neon.ORANGE)
         ui.text(if (daily) "Daily Complete!" else if (vLast) "World Clear!" else listOf("Level Complete!", "Awesome!", "Brilliant!", "Great job!")[(p.level.levelId + p.level.worldId) % 4], 0f, 3.05f, 0.58f, Neon.TEXT)
         val best = p.level.starThresholds.threeStarsMaxMoves
         ui.text("${p.moveCount} moves  ·  best $best", 0f, 2.1f, 0.38f, Neon.a(Neon.TEXT, 0.85f))
@@ -733,8 +731,7 @@ class Gameplay(private val game: Game) {
         val cx = if (vMult > 1 || vStreak >= 2) -1.4f else 0f
         ui.card(cx, 1.0f, 3.4f, 1.1f, Neon.BLUE, 0.9f)
         val pop = if (t in 0.01f..0.99f) 1f + 0.08f * sin(ui.time * 30f) else 1f
-        ui.circle(cx - 0.85f, 1.0f, 0.6f * pop, Neon.ENERGY)
-        ui.ring(cx - 0.85f, 1.0f, 0.4f * pop, 0.4f * pop, Neon.a(Neon.BG, 0.35f), 0.06f)
+        ui.coin(cx - 0.85f, 1.0f, 0.62f * pop)
         ui.text("+$shown", cx - 0.45f, 1.0f, 0.48f, Neon.TEXT, Align.LEFT)
         if (vMult > 1 || vStreak >= 2) {
             val hot = if (vMult > 1) Neon.ORANGE else Neon.PINK
@@ -761,9 +758,7 @@ class Gameplay(private val game: Game) {
         ui.text("Lv $lv", -3.2f, -0.2f, 0.36f, Neon.SUCCESS, Align.LEFT, logo = true)
         val bw = 4.4f
         val bx = -2.1f
-        ui.rrect(bx + bw / 2, -0.2f, bw, 0.3f, Neon.a(Neon.TEXT, 0.12f), 0.15f)
-        val f = (into.toFloat() / need).coerceIn(0f, 1f)
-        if (f > 0.01f) ui.rrect(bx + bw * f / 2, -0.2f, bw * f, 0.3f, Neon.SUCCESS, 0.15f)
+        ui.bar(bx + bw / 2, -0.2f, bw, 0.3f, into.toFloat() / need, Neon.SUCCESS)
         ui.text("+$vXpGain XP", 3.3f, -0.2f, 0.28f, Neon.SUCCESS, Align.RIGHT)
         Unlocks.next(lv)?.let { ui.text("Lv ${it.level}: ${it.label}", 0.1f, -0.72f, 0.26f, Neon.a(Neon.TEXT, 0.6f)) }
 
@@ -803,11 +798,11 @@ class Gameplay(private val game: Game) {
     private fun drawChest(ui: Ui, x: Float, y: Float, s: Float, open: Boolean) {
         val wood = 0xFF8A4B1F.toInt()
         val gold = Neon.ENERGY
-        ui.rrect(x, y - 0.12f * s, 1.5f * s, 0.95f * s, gold, 0.12f * s)
-        ui.rrect(x, y - 0.12f * s, 1.36f * s, 0.81f * s, wood, 0.1f * s)
+        ui.grad(x, y - 0.12f * s, 1.5f * s, 0.95f * s, Neon.lighten(gold, 0.3f), Neon.darken(gold, 0.25f), 0.12f * s)
+        ui.grad(x, y - 0.12f * s, 1.36f * s, 0.81f * s, Neon.lighten(wood, 0.15f), Neon.darken(wood, 0.3f), 0.1f * s)
         val ly = if (open) y + 0.75f * s else y + 0.45f * s
-        ui.rrect(x, ly, 1.56f * s, 0.5f * s, gold, 0.18f * s)
-        ui.rrect(x, ly, 1.42f * s, 0.36f * s, wood, 0.14f * s)
+        ui.grad(x, ly, 1.56f * s, 0.5f * s, Neon.lighten(gold, 0.35f), Neon.darken(gold, 0.2f), 0.18f * s)
+        ui.grad(x, ly, 1.42f * s, 0.36f * s, Neon.lighten(wood, 0.2f), Neon.darken(wood, 0.2f), 0.14f * s)
         ui.box(x, y - 0.12f * s, 0.16f * s, 0.95f * s, gold)
         if (!open) ui.circle(x, y + 0.2f * s, 0.32f * s, gold)
     }
@@ -857,7 +852,7 @@ class Gameplay(private val game: Game) {
         ui.dim()
         ui.card(0f, -0.6f, 7.2f, 9.0f, Neon.BLOCKED)
         ui.star(0f, 4.3f, 2.0f, Neon.BLOCKED)
-        ui.rrect(0f, 2.7f, 6.6f, 1.25f, Neon.RED)
+        ui.ribbon(0f, 2.7f, 6.4f, 1.2f, Neon.RED)
         ui.text("Out of Moves!", 0f, 2.7f, 0.62f, Neon.TEXT)
         ui.text("Moves:  ${p.moveCount}\nBest:  ${p.level.starThresholds.threeStarsMaxMoves}", 0f, 1.25f, 0.44f, Neon.TEXT)
         ui.button("↻  Retry", 0f, -0.35f, 5.0f, 1.15f, Neon.ENERGY, Style.FILLED) { restart() }

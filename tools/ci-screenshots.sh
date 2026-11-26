@@ -47,14 +47,17 @@ moves U U R R R U; sleep 4.6; shot 10-shadow-intro
 sleep 1.2; shot 11-shadow-guided
 moves R R R; sleep 1.3; shot 12-victory-l4
 sleep 3.4; shot 12b-level5
-tap $BACK; shot 13-world-map
-tap $BACK; shot 14-worlds
-tap $BACK; shot 15-menu
-tap -1.95 -0.4; shot 16-daily
-tap $BACK; tap 1.95 -2.3; shot 18-shop
-tap $BACK; tap 0 -4.1; shot 19-achievements
-tap $BACK; tap HW-0.75 HH-0.85; shot 20-settings
-tap $BACK; tap $BACK; shot 21-profile
+tap HW-0.72 HH-0.8; shot 13-pause
+tap 0 2.6
+tap $BACK; shot 14-world-map
+tap $BACK; shot 15-worlds
+tap $BACK; shot 16-login-reward
+tap 0 -3.35 1.5; tap 0 -3.9; shot 17-menu
+tap -3.3 -4.75; shot 18-daily
+tap $BACK; tap 3.3 -4.75; shot 19-shop
+tap $BACK; tap HW-2.0 HH-0.85; shot 20-achievements
+tap $BACK; tap HW-0.75 HH-0.85; shot 21-settings
+tap $BACK; tap $BACK; shot 22-profile
 
 timeout 60 adb logcat -d > shots/logcat.txt
 if grep -q "FATAL EXCEPTION" shots/logcat.txt; then
