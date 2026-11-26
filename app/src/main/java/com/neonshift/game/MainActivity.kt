@@ -158,6 +158,13 @@ class GameView(context: Context, val game: Game, private val ui: Ui) : View(cont
                 }
             }
             MotionEvent.ACTION_UP -> {
+                // A very fast flick can arrive with no MOVE event past the threshold: read it from the lift point.
+                if (dragging == null && !gestureDone && hypot(e.x - downX, e.y - downY) >= threshold()) {
+                    gestureDone = true
+                    val dx = e.x - downX
+                    val dy = e.y - downY
+                    game.swipe(if (abs(dx) > abs(dy)) (if (dx > 0) Direction.RIGHT else Direction.LEFT) else (if (dy > 0) Direction.DOWN else Direction.UP))
+                }
                 if (dragging == null && !gestureDone) {
                     val h = downHit
                     if (h != null && h.contains(wx, wy)) {
