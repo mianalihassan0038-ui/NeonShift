@@ -32,3 +32,11 @@ Thumbs.db
 *.aab
 *.unitypackage
 crashlytics-build.properties
+
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.iml
+captures/
+.kotlin/

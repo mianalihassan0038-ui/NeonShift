@@ -1,0 +1,107 @@
+{
+  "levelId": 1,
+  "worldId": 2,
+  "gridWidth": 5,
+  "gridHeight": 5,
+  "maxMoves": 14,
+  "hint": "Duality: tighter corridors. Plan further ahead.",
+  "light": {
+    "start": {
+      "x": 4,
+      "y": 4
+    },
+    "exit": {
+      "x": 2,
+      "y": 3
+    },
+    "walls": [
+      {
+        "x": 0,
+        "y": 3
+      },
+      {
+        "x": 0,
+        "y": 4
+      },
+      {
+        "x": 1,
+        "y": 0
+      },
+      {
+        "x": 2,
+        "y": 0
+      },
+      {
+        "x": 2,
+        "y": 4
+      },
+      {
+        "x": 3,
+        "y": 0
+      },
+      {
+        "x": 3,
+        "y": 3
+      },
+      {
+        "x": 3,
+        "y": 4
+      }
+    ]
+  },
+  "shadow": {
+    "start": {
+      "x": 0,
+      "y": 1
+    },
+    "exit": {
+      "x": 2,
+      "y": 2
+    },
+    "walls": [
+      {
+        "x": 1,
+        "y": 2
+      },
+      {
+        "x": 1,
+        "y": 3
+      },
+      {
+        "x": 2,
+        "y": 1
+      },
+      {
+        "x": 2,
+        "y": 3
+      },
+      {
+        "x": 4,
+        "y": 0
+      },
+      {
+        "x": 4,
+        "y": 1
+      },
+      {
+        "x": 4,
+        "y": 2
+      },
+      {
+        "x": 4,
+        "y": 3
+      },
+      {
+        "x": 4,
+        "y": 4
+      }
+    ]
+  },
+  "energyNodes": [],
+  "starThresholds": {
+    "threeStarsMaxMoves": 9,
+    "twoStarsMaxMoves": 11,
+    "oneStarMaxMoves": 14
+  },
+  "_solution": "UUULLLDDR"
+}

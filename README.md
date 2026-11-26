@@ -1,78 +1,62 @@
 # NEON SHIFT
 
-A portrait 2D neon puzzle game for Android, built with **Unity 2D + C#**.
+A portrait 2D neon puzzle game for Android, written in **Kotlin** (native Android, no game engine).
 
 You control two linked characters at once: cyan **Light** and violet **Shadow**.
 Every swipe moves Light in the swipe direction and Shadow in the **opposite** direction.
 If either one would hit a wall or a board edge, **neither** moves. Get both onto their own exits to win.
 
-<img src="docs/layout-preview.png" width="270" alt="Layout preview of the gameplay screen">
-
-_The image is a layout preview rendered outside Unity, not an in-game screenshot._
-
 ## Download
 
-**Android APK:** [latest release](https://github.com/mianalihassan0038-ui/NeonShift/releases/latest) → `NeonShift.apk`.
-On the phone, open the file and allow "Install unknown apps" when asked. The APK is built automatically by GitHub Actions on every push to `main` (debug-signed, for testing).
+**Android APK:** [latest release](https://github.com/mianalihassan0038-ui/NeonShift/releases/latest) → `NeonShift.apk` (Android 8.0 or newer).
+On the phone, open the file and allow "Install unknown apps" when asked.
+GitHub Actions builds, tests and publishes a new APK on every push to `main`. No licence or secret is needed.
 
 ## What's in the game
 
-Following every build in the game plan:
+- **Core loop:** two 5×5 boards, swipe input (one gesture = one move, multitouch cancels, input locked while animating), paired movement checked before anything moves, wall and edge collision with a red "bump", move counter, win detection.
+- **Puzzle tools:** undo, restart, per-level move limit with a Level Failed panel, 1–3 stars saved per level.
+- **Screens:** splash with loading bar, main menu, world select, world map with level nodes and stars, pause panel, Level Complete / Level Failed panels, 20 levels in two worlds of 10 (every one proven solvable), first-time swipe tutorial.
+- **Polish:** synthesized music and sound effects with on/off and volume, haptics, settings screen, screen fades, Inter font.
+- **Extras from the UI designs:** Daily Challenge (a new solver-checked puzzle each day, same for everyone, with streaks and a coin reward), Hint button (3 free hints, then 100 coins each), coins, achievements and a profile with player level.
 
-- **Build 001, core loop:** two 5×5 boards, swipe input (one gesture = one move, multitouch cancels, input locked while animating), paired movement validated before anything moves, wall and edge collision with a red "bump", move counter, win detection.
-- **Build 002, puzzle tools:** undo (full-state snapshots), restart, per-level move limit with a Level Failed panel, 1–3 star rating saved per level.
-- **Build 003, UI and content:** splash with loading bar, main menu, world select, world map with level nodes and stars, pause panel, Level Complete / Level Failed panels, 20 levels in two worlds of 10 (every one proven solvable), first-time swipe tutorial and teaching hints.
-- **Polish:** synthesized music and sound effects with on/off and volume, short haptics, settings screen, safe-area aware layout for notched phones, screen fades, Inter font.
-- **Extras from the UI designs:** Daily Challenge (a new solver-checked puzzle each day, same for everyone, with streaks and a coin reward), Hint button (the solver shows the next correct swipe; 3 free hints, then 100 coins each), coins, achievements and a profile with player level.
-- **Release prep:** app icon, store listing draft (`STORE_LISTING.md`), privacy policy (`PRIVACY.md`), feature graphic (`docs/store/`), Android build script with IL2CPP + ARM64/ARMv7 and an AAB option.
+Not included, on purpose: the Shop, real-money purchases and ads, and Worlds 3–5 (shown as "Coming soon").
 
-Not included, on purpose: the Shop, real-money purchases and ads (the plan says to add those only after the game is stable), the "Switch" button from the mockups (no matching mechanic in the plan), and Worlds 3–5 (their mechanics, portals, gates and one-way paths, are "later" in the plan; the world cards show "Coming soon").
+## Build it yourself
 
-## Open it in Unity
+Install Android Studio (or JDK 17 + Android SDK), then:
 
-1. Install **Unity Hub** and a **Unity 6** editor with **Android Build Support**.
-2. Clone this repo, then in Unity Hub choose **Add → Add project from disk** and pick the `NeonShift` folder. If Hub asks for an editor version, pick your Unity 6 version.
-3. On first open, the project sets portrait Player Settings and creates `Assets/Scenes/Gameplay.unity` automatically. (You can also use the **NEON SHIFT** menu.)
-4. Press **Play**. Swipe with the mouse or use the arrow keys. `Z` undoes, `R` restarts, `H` shows a hint, and in the Editor `N` skips a level.
-5. After the first open, commit the `.meta` files Unity creates.
+```
+./gradlew testReleaseUnitTest   # rule, level and daily-puzzle tests
+./gradlew assembleRelease       # app/build/outputs/apk/release/app-release.apk
+```
 
-Everything (camera, boards, tokens, text) is created in code by `GameManager`, so the scene can stay empty and the prototype needs no art files.
+Or open the folder in Android Studio and press Run.
 
-## Build the APK yourself
-
-- In the Editor: **NEON SHIFT → Build Android APK** (writes `Builds/Android/NeonShift.apk`).
-- Command line: `Unity -batchmode -quit -projectPath . -executeMethod NeonShift.EditorTools.BuildScript.BuildAndroid` (add `-androidAab` for a Play Store bundle).
-- CI: `.github/workflows/build.yml` runs the rule tests, builds with [GameCI](https://game.ci), uploads the APK as an artifact and publishes a GitHub Release. It needs three repository secrets: `UNITY_LICENSE` (contents of your `Unity_lic.ulf`), `UNITY_EMAIL` and `UNITY_PASSWORD`.
-
-The package name is `com.neonshift.game` (change it in `Assets/Editor/BuildScript.cs`).
+The release APK is signed with the shared test key in `keystore/` so new builds install over old ones.
+For the Play Store, add your own upload key as the secrets `RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD`.
 
 ## Project layout
 
 ```
-Assets/
-  Editor/NeonShiftProjectSetup.cs   portrait settings + scene creation
-  Resources/Levels/World01/*.json   level files (format below)
-  Scripts/
-    Core/      GameManager, GameState, GridPos, Direction
-    Levels/    LevelData, LevelLoader, LevelManager
-    Grid/      BoardState, BoardRenderer
-    Player/    PlayerController (token visuals and animation)
-    Input/     SwipeInput
-    Movement/  MovementManager, CollisionChecker
-    Puzzle/    PuzzleState (the rules), PuzzleSolver (shortest solution), StarManager, DailyChallenge
-    History/   UndoManager (state snapshots)
-    UI/        GameplayUI, UIKit, WorldButton, Widgets (toggle, slider), TutorialHint, NeonTheme, NeonSprites
-    UI/Screens Splash, MainMenu, WorldSelect, LevelMap, Daily, Achievements, Settings, Profile
-    Audio/     AudioManager (synthesized sounds), Haptics
-    Progress/  Rewards, achievements (plain C#)
-    Save/      SaveManager (progress, coins, hints, daily streak), SettingsData
-  Resources/Fonts/                  Inter (SIL Open Font License, see OFL.txt)
-Tests/CoreTests.cs        rule tests that run without Unity
-tools/run-core-tests.sh   compiles and runs the tests with Mono
-tools/generate_levels.py  helper that searches for new levels
+app/src/main/java/com/neonshift/game/
+  core/Core.kt      the rules: GridPos, Direction, BoardState, PuzzleState, PuzzleSolver (BFS), stars, daily puzzle, rewards, achievements
+  core/Levels.kt    JSON level reader, save data (progress, coins, hints, streak, settings), LevelManager
+  ui/Ui.kt          neon drawing helpers and widgets (buttons, toggles, sliders) on an Android Canvas
+  ui/Board.kt       board drawing and the animated Light / Shadow tokens
+  Game.kt           navigation and the menu screens
+  Gameplay.kt       gameplay screen, HUD and the pause / win / fail / hint panels
+  Sound.kt          synthesized sounds and music, haptics
+  MainActivity.kt   activity, frame loop, touch to tap / swipe
+app/src/main/assets/levels/   level files (format below)
+app/src/main/assets/fonts/    Inter (SIL Open Font License, see OFL.txt)
+app/src/test/                 unit tests
+tools/generate_levels.py      helper that searches for new levels
+tools/ci-screenshots.sh       CI emulator run that takes screenshots
+legacy-unity/                 the earlier Unity version, kept for reference
 ```
 
-The rule code (`GridPos`, `Direction`, `LevelData`, `BoardState`, `CollisionChecker`, `PuzzleState`, `PuzzleSolver`, `StarManager`, `UndoManager`) does not use `UnityEngine`, so it can be tested anywhere.
+The code in `core/` has no Android imports, so the tests run on a plain JVM.
 
 ## Level format
 
@@ -99,12 +83,7 @@ Coordinates are `x` = column (0 = left) and `y` = row (**0 = top**).
 
 ## Tests
 
-```
-sudo apt install mono-devel   # once
-tools/run-core-tests.sh
-```
-
-They check all four directions, the daily-challenge generator, hints from any position, coin rewards and achievements, Light-blocked and Shadow-blocked cases, board edges, the move counter, the win rule, undo, restart, the move limit, stars, and that every shipped level is valid and solvable.
+`./gradlew testReleaseUnitTest` checks all four directions, blocked Light and blocked Shadow, board edges, the move counter, the win rule, undo, restart, the move limit, stars, rewards, the daily-challenge generator, and that every shipped level is valid and solvable with its 3-star target equal to the shortest solution.
 
 ## Make new levels
 
