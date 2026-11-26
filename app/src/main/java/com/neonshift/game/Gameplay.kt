@@ -51,6 +51,7 @@ class Gameplay(private val game: Game) {
         animLeft = 0f
         celebrateLeft = 0f
         pendingOutcome = null
+        queued = null
         snapTokens()
         if (!daily && !game.save.tutorialDone && game.levels.currentIndex == 0) arrow = PuzzleSolver.solve(level)?.firstOrNull()
         state = State.PLAYING
@@ -78,8 +79,11 @@ class Gameplay(private val game: Game) {
 
     private fun exitToList() = game.show(if (daily) AppScreen.DAILY else AppScreen.LEVEL_SELECT)
 
+    private var queued: Direction? = null
+
     fun swipe(d: Direction) {
         val p = puzzle ?: return
+        if (state == State.ANIMATING && panel == Panel.NONE) { queued = d; return } // one swipe is remembered while moving
         if (state != State.PLAYING || panel != Panel.NONE) return
         val o = p.tryMove(d)
         if (o.result == MoveResult.ALREADY_SOLVED || o.result == MoveResult.OUT_OF_MOVES) return
@@ -120,8 +124,12 @@ class Gameplay(private val game: Game) {
                 game.pulse(60)
                 panel = Panel.FAILURE
             }
-            else -> state = State.PLAYING
+            else -> {
+                state = State.PLAYING
+                queued?.let { queued = null; swipe(it) }
+            }
         }
+        if (state != State.PLAYING) queued = null
     }
 
     private fun win() {
