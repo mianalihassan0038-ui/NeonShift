@@ -53,8 +53,8 @@ tap $BACK; shot 14-world-map
 tap $BACK; shot 15-worlds
 tap $BACK; shot 16-login-reward
 tap 0 -3.35 1.5; tap 0 -3.9; shot 17-menu
-tap -3.3 -4.75; shot 18-daily
-tap $BACK; tap 3.3 -4.75; shot 19-shop
+tap -3.3 -HH+2.3; shot 18-daily
+tap $BACK; tap 3.3 -HH+2.3; shot 19-shop
 tap $BACK; tap HW-2.0 HH-0.85; shot 20-achievements
 tap $BACK; tap HW-0.75 HH-0.85; shot 21-settings
 tap $BACK; tap $BACK; shot 22-profile

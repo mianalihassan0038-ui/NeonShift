@@ -157,22 +157,27 @@ class Game(
         ui.button("", ui.halfW - 0.75f, top, 1.05f, 1.05f, Neon.LIGHT, Style.ROUND, icon = "gear") { show(AppScreen.SETTINGS) }
         xpRow(ui, ui.halfH - 2.05f)
 
-        ui.logo(4.9f, 1.55f)
+        // Spread the layout over taller screens.
+        val extra = (ui.halfH - 8.6f).coerceAtLeast(0f)
+        val logoY = top - 2.85f - extra * 0.3f
+        val heroY = logoY - 3.15f - extra * 0.25f
+        val ty = -ui.halfH + 2.3f
+        val playY = (heroY - 1.0f + ty + 1.05f) / 2f + 0.15f
+        ui.logo(logoY, 1.55f)
         // The two heroes on a glowing ring.
         val bob = sin(ui.time * 2.2f) * 0.1f
-        ui.glow(0f, 1.25f, 6.5f, 2.2f, Neon.a(skin.shadow, 0.35f))
-        ui.ring(0f, 1.15f, 4.4f, 1.0f, Neon.a(skin.light, 0.8f), 0.08f)
-        ui.ring(0f, 1.15f, 3.6f, 0.75f, Neon.a(skin.light, 0.3f), 0.05f)
-        ui.character(-0.85f, 1.75f + bob, skin.light, 1.15f)
-        ui.character(0.85f, 1.75f - bob, skin.shadow, 1.15f)
+        ui.glow(0f, heroY - 0.5f, 6.5f, 2.2f, Neon.a(skin.shadow, 0.35f))
+        ui.ring(0f, heroY - 0.6f, 4.4f, 1.0f, Neon.a(skin.light, 0.8f), 0.08f)
+        ui.ring(0f, heroY - 0.6f, 3.6f, 0.75f, Neon.a(skin.light, 0.3f), 0.05f)
+        ui.character(-0.85f, heroY + bob, skin.light, 1.15f)
+        ui.character(0.85f, heroY - bob, skin.shadow, 1.15f)
 
-        playButton(ui, 0f, -1.35f, skin.light) { continueGame() }
-        levels.current?.let { ui.text("World ${it.worldId}  ·  Level ${it.levelId}", 0f, -2.85f, 0.34f, Neon.a(Neon.TEXT, 0.7f)) }
+        playButton(ui, 0f, playY, skin.light) { continueGame() }
+        levels.current?.let { ui.text("World ${it.worldId}  ·  Level ${it.levelId}", 0f, playY - 1.55f, 0.34f, Neon.a(Neon.TEXT, 0.7f)) }
 
         // Four modes as calm icon tiles.
         val dailyOn = save.unlocked(Unlocks.DAILY_LEVEL)
         val taOn = save.unlocked(Unlocks.TIME_ATTACK_LEVEL)
-        val ty = -4.75f
         modeTile(ui, -3.3f, ty, "calendar", "Daily", Neon.PINK, dailyOn, Unlocks.DAILY_LEVEL, if (dailyOn && !dailyDoneToday) "NEW" else null) { show(AppScreen.DAILY) }
         modeTile(ui, -1.1f, ty, "clock", "Time", Neon.ENERGY, taOn, Unlocks.TIME_ATTACK_LEVEL, null) { show(AppScreen.TIME_ATTACK) }
         modeTile(ui, 1.1f, ty, "grid", "Worlds", Neon.LIGHT, true, 0, null) { show(AppScreen.WORLD_SELECT) }

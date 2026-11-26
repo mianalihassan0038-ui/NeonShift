@@ -760,7 +760,7 @@ class Gameplay(private val game: Game) {
         val bx = -2.1f
         ui.bar(bx + bw / 2, -0.2f, bw, 0.3f, into.toFloat() / need, Neon.SUCCESS)
         ui.text("+$vXpGain XP", 3.3f, -0.2f, 0.28f, Neon.SUCCESS, Align.RIGHT)
-        Unlocks.next(lv)?.let { ui.text("Lv ${it.level}: ${it.label}", 0.1f, -0.72f, 0.26f, Neon.a(Neon.TEXT, 0.6f)) }
+        Unlocks.next(lv)?.let { ui.text("Next at Lv ${it.level}: ${it.label}", 0.1f, -0.74f, 0.3f, Neon.a(Neon.TEXT, 0.6f)) }
 
         // Reward chest.
         if (vChestReady) {
@@ -772,7 +772,7 @@ class Gameplay(private val game: Game) {
             val prog = game.save.chestProgress
             drawChest(ui, -1.6f, -1.75f, 0.6f, false)
             for (i in 0 until Rewards.CHEST_EVERY) ui.circle(-0.6f + i * 0.55f, -1.75f, 0.32f, if (i < prog) Neon.ENERGY else Neon.a(Neon.TEXT, 0.15f))
-            ui.text("Chest", 1.5f, -1.75f, 0.3f, Neon.a(Neon.TEXT, 0.7f))
+            ui.text("Chest", 1.5f, -1.75f, 0.34f, Neon.a(Neon.TEXT, 0.7f))
         }
 
         // Next level, auto after a short moment.
