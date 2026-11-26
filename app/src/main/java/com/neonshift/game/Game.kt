@@ -208,7 +208,7 @@ class Game(
             }
             ui.text(Rewards.loginReward(i).toString(), x, y - 0.65f, 0.3f, Neon.TEXT)
         }
-        ui.text("Day 7 also gives 2 free hints", 2.8f, -0.45f, 0.24f, Neon.a(Neon.ENERGY, 0.8f))
+        ui.text("Day 7 also gives 2 free hints!", 0f, -1.95f, 0.28f, Neon.a(Neon.ENERGY, 0.85f))
         if (!claimedToday) {
             ui.button("CLAIM  +${Rewards.loginReward(day)}", 0f, -3.35f, 5.2f, 1.25f, Neon.SUCCESS, Style.FILLED) {
                 loginClaimed = save.claimLogin(today)
@@ -219,7 +219,7 @@ class Game(
                 } else loginOpen = false
             }
         } else {
-            ui.text("+$loginClaimed coins!" + if (day == 7) "  +2 hints!" else "", 0f, -2.85f, 0.45f, Neon.ENERGY)
+            ui.text("+$loginClaimed coins!" + if (day == 7) "  +2 hints!" else "", 0f, -2.75f, 0.45f, Neon.ENERGY)
             ui.button("AWESOME", 0f, -3.9f, 4.4f, 1.1f, Neon.ENERGY, Style.FILLED) { closeLogin() }
         }
     }

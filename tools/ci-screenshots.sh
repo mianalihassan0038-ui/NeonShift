@@ -41,7 +41,8 @@ tap 0 2.3 1.5;   shot 05-level1
 swipe R; swipe R; shot 06-level1-moves
 tap HW-0.72 HH-0.8; shot 07-pause
 tap 0 2.9
-swipe R; swipe R; sleep 1.0; shot 08-victory-stars
+# Level 1-1 is three swipes right; extra swipes after the win are ignored.
+swipe R; sleep 0.6; swipe R; sleep 0.6; swipe R; sleep 0.6; swipe R; sleep 0.3; shot 08-victory-stars
 sleep 1.5; shot 09-victory
 tap 0 -1.9 1.5; shot 10-level2
 swipe L; sleep 0.2; shot 11-blocked
