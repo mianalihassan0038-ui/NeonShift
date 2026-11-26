@@ -42,15 +42,15 @@ moves U U R R; sleep 1.9; shot 05-victory-levelup
 sleep 3.0; moves U U R R R U; sleep 2.2; shot 06-victory-chest
 tap 0.35 -1.75 0.5; shot 07-chest-shaking
 sleep 1.2; shot 08-chest-open
-tap 0 -3.0 0.4; sleep 2.4; shot 09-shadow-intro
-sleep 1.2; shot 10-shadow-guided
-moves R R R; sleep 1.3; shot 11-victory-l4
-sleep 3.4; shot 12-level5
+tap 0 -3.0 0.4; sleep 3.5; shot 09-level3
+moves U U R R R U; sleep 4.6; shot 10-shadow-intro
+sleep 1.2; shot 11-shadow-guided
+moves R R R; sleep 1.3; shot 12-victory-l4
+sleep 3.4; shot 12b-level5
 tap $BACK; shot 13-world-map
 tap $BACK; shot 14-worlds
-tap $BACK; shot 15-login-reward
-tap 0 -3.35 1.5; tap 0 -3.9; shot 16-menu
-tap -1.95 -0.4; shot 17-daily
+tap $BACK; shot 15-menu
+tap -1.95 -0.4; shot 16-daily
 tap $BACK; tap 1.95 -2.3; shot 18-shop
 tap $BACK; tap 0 -4.1; shot 19-achievements
 tap $BACK; tap HW-0.75 HH-0.85; shot 20-settings

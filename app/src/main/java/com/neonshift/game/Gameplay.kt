@@ -720,7 +720,7 @@ class Gameplay(private val game: Game) {
         ui.text(if (daily) "Daily Complete!" else if (vLast) "World Clear!" else listOf("Level Complete!", "Awesome!", "Brilliant!", "Great job!")[(p.level.levelId + p.level.worldId) % 4], 0f, 3.05f, 0.58f, Neon.TEXT)
         val best = p.level.starThresholds.threeStarsMaxMoves
         ui.text("${p.moveCount} moves  ·  best $best", 0f, 2.1f, 0.38f, Neon.a(Neon.TEXT, 0.85f))
-        if (p.moveCount <= best && vTime > 0.7f) ui.text("PERFECT!", 2.55f, 2.45f, 0.34f, Neon.a(Neon.ENERGY, 0.7f + 0.3f * sin(ui.time * 6f)), logo = true)
+        if (p.moveCount <= best && vTime > 0.7f) ui.text("PERFECT!", 2.75f, 2.1f, 0.3f, Neon.a(Neon.ENERGY, 0.7f + 0.3f * sin(ui.time * 6f)), logo = true)
 
         // Coins count up.
         val coinStart = 0.7f
