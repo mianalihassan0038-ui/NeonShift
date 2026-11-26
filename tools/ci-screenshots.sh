@@ -24,7 +24,10 @@ swipe() {
   esac
   sleep 0.6
 }
-shot() { adb exec-out screencap -p > "shots/$1.png"; echo "saved $1"; }
+shot() {
+  if ! adb get-state >/dev/null 2>&1; then echo "::error::Emulator disconnected before $1"; adb logcat -d > shots/logcat.txt 2>/dev/null; exit 1; fi
+  timeout 60 adb exec-out screencap -p > "shots/$1.png" && echo "saved $1"
+}
 
 adb shell am start -W -n com.neonshift.game/.MainActivity
 sleep 0.8; shot 01-splash
@@ -43,7 +46,7 @@ tap -3.75 7.35; tap 0 -4.45; shot 12-achievements
 tap -3.75 7.35; tap 0 -5.75; shot 13-settings
 tap -3.75 7.35; tap -3.7 7.3; shot 14-profile
 
-adb logcat -d > shots/logcat.txt
+timeout 60 adb logcat -d > shots/logcat.txt
 if grep -q "FATAL EXCEPTION" shots/logcat.txt; then
   echo "::error::The app crashed. See logcat.txt in the screenshots artifact."
   grep -A 30 "FATAL EXCEPTION" shots/logcat.txt | head -60
