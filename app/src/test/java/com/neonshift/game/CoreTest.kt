@@ -215,4 +215,33 @@ class CoreTest {
             assertTrue("${f.name} limit", level.maxMoves == 0 || level.maxMoves >= sol.size)
         }
     }
+
+    @Test fun soloBoardOnlyMovesLight() {
+        val l = LevelParser.parse("""{"gridWidth":4,"gridHeight":3,"solo":true,"light":{"start":{"x":0,"y":1},"exit":{"x":3,"y":1},"walls":[]}}""")
+        assertTrue(l.solo && l.validate().isEmpty())
+        val s = PuzzleState(l)
+        assertEquals(Direction.RIGHT, null ?: PuzzleSolver.solve(l)!!.first())
+        s.tryMove(Direction.RIGHT); s.tryMove(Direction.RIGHT)
+        assertEquals(Direction.RIGHT, s.winningMove())
+        val o = s.tryMove(Direction.RIGHT)
+        assertTrue(o.solvedNow && !o.shadowTeleported)
+        assertEquals(3, PuzzleSolver.solve(l)!!.size)
+    }
+
+    @Test fun playerLevelsAndUnlocks() {
+        assertEquals(Triple(1, 0, 80), Rewards.levelInfo(0))
+        assertEquals(Triple(2, 10, 120), Rewards.levelInfo(90))
+        val save = SaveData(MemoryStore())
+        assertFalse(save.unlocked(Unlocks.TIME_ATTACK_LEVEL))
+        val hints = save.hints
+        val gained = save.addXp(80 + 120 + 160) // to level 4
+        assertEquals(3, gained)
+        assertEquals(4, save.playerLevel)
+        assertEquals(3 * Rewards.LEVEL_UP_COINS, save.coins)
+        assertEquals(hints + 3, save.hints)
+        assertTrue("level 4 gives Sunset", save.ownsSkin(1))
+        assertEquals(Rewards.CHEST_EVERY, save.chestProgress)
+        assertEquals("Time Attack", Unlocks.next(4)!!.label)
+        assertEquals(3, Rewards.streakMultiplier(5)); assertEquals(1, Rewards.streakMultiplier(2))
+    }
 }

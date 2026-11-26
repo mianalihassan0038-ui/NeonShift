@@ -1,37 +1,26 @@
 {
   "levelId": 1,
   "worldId": 1,
-  "gridWidth": 5,
-  "gridHeight": 5,
-  "maxMoves": 9,
-  "hint": "Swipe. Light follows your swipe, Shadow moves the opposite way.",
+  "gridWidth": 4,
+  "gridHeight": 3,
+  "maxMoves": 0,
+  "hint": "Swipe right!",
+  "solo": true,
+  "tutorial": "swipe",
   "light": {
     "start": {
       "x": 0,
-      "y": 2
+      "y": 1
     },
     "exit": {
-      "x": 4,
-      "y": 2
+      "x": 3,
+      "y": 1
     },
     "walls": []
   },
-  "shadow": {
-    "start": {
-      "x": 4,
-      "y": 2
-    },
-    "exit": {
-      "x": 0,
-      "y": 2
-    },
-    "walls": []
-  },
-  "energyNodes": [],
   "starThresholds": {
-    "threeStarsMaxMoves": 4,
-    "twoStarsMaxMoves": 6,
-    "oneStarMaxMoves": 9
-  },
-  "_solution": "RRRR"
+    "threeStarsMaxMoves": 3,
+    "twoStarsMaxMoves": 5,
+    "oneStarMaxMoves": 8
+  }
 }

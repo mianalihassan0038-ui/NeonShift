@@ -3,29 +3,29 @@
   "worldId": 1,
   "gridWidth": 5,
   "gridHeight": 5,
-  "maxMoves": 20,
-  "hint": "",
+  "maxMoves": 12,
+  "hint": "Moves that go nowhere don't count.",
   "light": {
     "start": {
       "x": 0,
       "y": 1
     },
     "exit": {
-      "x": 2,
-      "y": 2
+      "x": 3,
+      "y": 3
     },
     "walls": [
       {
         "x": 0,
-        "y": 0
+        "y": 3
+      },
+      {
+        "x": 0,
+        "y": 4
       },
       {
         "x": 1,
-        "y": 0
-      },
-      {
-        "x": 1,
-        "y": 2
+        "y": 4
       },
       {
         "x": 2,
@@ -33,43 +33,55 @@
       },
       {
         "x": 3,
-        "y": 3
+        "y": 0
+      },
+      {
+        "x": 3,
+        "y": 2
       }
     ]
   },
   "shadow": {
     "start": {
       "x": 4,
-      "y": 3
+      "y": 2
     },
     "exit": {
-      "x": 2,
-      "y": 2
+      "x": 1,
+      "y": 0
     },
     "walls": [
       {
-        "x": 1,
-        "y": 2
-      },
-      {
-        "x": 1,
+        "x": 0,
         "y": 3
       },
       {
         "x": 2,
+        "y": 4
+      },
+      {
+        "x": 3,
         "y": 1
       },
       {
         "x": 3,
         "y": 3
+      },
+      {
+        "x": 4,
+        "y": 0
+      },
+      {
+        "x": 4,
+        "y": 1
       }
     ]
   },
   "energyNodes": [],
   "starThresholds": {
-    "threeStarsMaxMoves": 15,
-    "twoStarsMaxMoves": 17,
-    "oneStarMaxMoves": 20
+    "threeStarsMaxMoves": 7,
+    "twoStarsMaxMoves": 9,
+    "oneStarMaxMoves": 12
   },
-  "_solution": "DDDRRRRUUUULLDD"
+  "_solution": "RRRRDDL"
 }

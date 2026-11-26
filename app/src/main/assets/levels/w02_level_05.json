@@ -3,19 +3,88 @@
   "worldId": 2,
   "gridWidth": 5,
   "gridHeight": 5,
-  "maxMoves": 14,
+  "maxMoves": 13,
   "hint": "",
   "light": {
-    "start": {"x": 1, "y": 3},
-    "exit": {"x": 3, "y": 2},
-    "walls": [{"x": 0, "y": 0}, {"x": 1, "y": 1}, {"x": 2, "y": 1}, {"x": 0, "y": 4}, {"x": 1, "y": 4}, {"x": 2, "y": 4}],
-    "cores": [{"x": 0, "y": 2}, {"x": 4, "y": 1}]
+    "start": {
+      "x": 3,
+      "y": 2
+    },
+    "exit": {
+      "x": 4,
+      "y": 1
+    },
+    "walls": [
+      {
+        "x": 1,
+        "y": 1
+      },
+      {
+        "x": 0,
+        "y": 2
+      },
+      {
+        "x": 1,
+        "y": 2
+      },
+      {
+        "x": 4,
+        "y": 2
+      },
+      {
+        "x": 4,
+        "y": 4
+      }
+    ],
+    "cores": [
+      {
+        "x": 4,
+        "y": 0
+      },
+      {
+        "x": 3,
+        "y": 3
+      }
+    ]
   },
   "shadow": {
-    "start": {"x": 3, "y": 0},
-    "exit": {"x": 1, "y": 1},
-    "walls": [{"x": 0, "y": 0}, {"x": 2, "y": 0}, {"x": 4, "y": 0}, {"x": 0, "y": 3}]
+    "start": {
+      "x": 1,
+      "y": 2
+    },
+    "exit": {
+      "x": 0,
+      "y": 3
+    },
+    "walls": [
+      {
+        "x": 2,
+        "y": 1
+      },
+      {
+        "x": 4,
+        "y": 1
+      },
+      {
+        "x": 1,
+        "y": 4
+      },
+      {
+        "x": 4,
+        "y": 4
+      }
+    ],
+    "cores": [
+      {
+        "x": 1,
+        "y": 0
+      }
+    ]
   },
-  "starThresholds": {"threeStarsMaxMoves": 9, "twoStarsMaxMoves": 11, "oneStarMaxMoves": 14},
-  "_solution": "ULRRRURDL"
+  "starThresholds": {
+    "threeStarsMaxMoves": 8,
+    "twoStarsMaxMoves": 10,
+    "oneStarMaxMoves": 13
+  },
+  "_solution": "DDUUURUD"
 }

@@ -34,10 +34,12 @@ class BoardData(
     var portals: List<Pair<GridPos, GridPos>> = emptyList(),
     var switches: List<GridPos> = emptyList(),
     var gates: List<GridPos> = emptyList(),
-    var crumble: List<GridPos> = emptyList()
+    var crumble: List<GridPos> = emptyList(),
+    /** A frozen board never moves (used by the single-board tutorial levels). */
+    var frozen: Boolean = false
 ) {
     fun specialCells(): List<GridPos> = walls + cores + portals.flatMap { listOf(it.first, it.second) } + switches + gates + crumble
-    fun copy() = BoardData(start, exit, walls.toList(), cores.toList(), portals.toList(), switches.toList(), gates.toList(), crumble.toList())
+    fun copy() = BoardData(start, exit, walls.toList(), cores.toList(), portals.toList(), switches.toList(), gates.toList(), crumble.toList(), frozen)
 }
 
 class StarThresholds(var threeStarsMaxMoves: Int = 0, var twoStarsMaxMoves: Int = 0, var oneStarMaxMoves: Int = 0)
@@ -51,8 +53,12 @@ class LevelData(
     var hint: String = "",
     var light: BoardData = BoardData(),
     var shadow: BoardData = BoardData(),
-    var starThresholds: StarThresholds = StarThresholds()
+    var starThresholds: StarThresholds = StarThresholds(),
+    /** Tutorial style for early levels: "swipe" (guided), "shadow" (guided Shadow intro) or empty. */
+    var tutorial: String = ""
 ) {
+    /** Only the Light board is played. */
+    val solo get() = shadow.frozen
     val hasCores get() = light.cores.isNotEmpty() || shadow.cores.isNotEmpty()
     val hasPortals get() = light.portals.isNotEmpty() || shadow.portals.isNotEmpty()
     val hasGates get() = light.gates.isNotEmpty() || shadow.gates.isNotEmpty() || light.switches.isNotEmpty() || shadow.switches.isNotEmpty()
@@ -71,7 +77,7 @@ class LevelData(
     private fun check(name: String, b: BoardData, errors: MutableList<String>) {
         if (!inBounds(b.start)) errors += "$name: start ${b.start} is outside the grid"
         if (!inBounds(b.exit)) errors += "$name: exit ${b.exit} is outside the grid"
-        if (b.start == b.exit) errors += "$name: start and exit are the same cell"
+        if (b.start == b.exit && !b.frozen) errors += "$name: start and exit are the same cell"
         val special = b.specialCells()
         for (c in special) {
             if (!inBounds(c)) errors += "$name: cell $c is outside the grid"
@@ -90,6 +96,7 @@ enum class TileType { EMPTY, WALL, EXIT, CORE, PORTAL, SWITCH, GATE, CRUMBLE }
 class BoardState(val width: Int, val height: Int, val data: BoardData) {
     val start = data.start
     val exit = data.exit
+    val frozen = data.frozen
     private val walls = data.walls.toHashSet()
     private val gates = data.gates.toHashSet()
     private val switches = data.switches.toHashSet()
@@ -160,10 +167,10 @@ object Rules {
     /** Applies one swipe. Returns null if either token is blocked (then nothing moves). */
     fun step(st: PlayState, d: Direction, lb: BoardState, sb: BoardState): PlayState? {
         val l1 = st.light.step(d)
-        val s1 = st.shadow.step(d.opposite())
-        if (!lb.canEnter(l1, st.brokenL, st.gatesOpen) || !sb.canEnter(s1, st.brokenS, st.gatesOpen)) return null
+        val s1 = if (sb.frozen) st.shadow else st.shadow.step(d.opposite())
+        if (!lb.canEnter(l1, st.brokenL, st.gatesOpen) || (!sb.frozen && !sb.canEnter(s1, st.brokenS, st.gatesOpen))) return null
         val brokenL = if (lb.isCrumble(st.light)) st.brokenL or lb.bit(st.light) else st.brokenL
-        val brokenS = if (sb.isCrumble(st.shadow)) st.brokenS or sb.bit(st.shadow) else st.brokenS
+        val brokenS = if (!sb.frozen && sb.isCrumble(st.shadow)) st.brokenS or sb.bit(st.shadow) else st.brokenS
         val l2 = lb.portalTarget(l1) ?: l1
         val s2 = sb.portalTarget(s1) ?: s1
         var coresL = st.coresL
@@ -225,6 +232,16 @@ class PuzzleState(val level: LevelData) {
         return true
     }
 
+    /** A swipe that wins right now, or null. */
+    fun winningMove(): Direction? {
+        if (isSolved) return null
+        for (d in Direction.entries) {
+            val n = Rules.step(state, d, lightBoard, shadowBoard) ?: continue
+            if (Rules.solved(n, lightBoard, shadowBoard)) return d
+        }
+        return null
+    }
+
     fun tryMove(swipe: Direction): MoveOutcome {
         if (isSolved) return MoveOutcome(MoveResult.ALREADY_SOLVED)
         if (isFailed) return MoveOutcome(MoveResult.OUT_OF_MOVES)
@@ -236,7 +253,7 @@ class PuzzleState(val level: LevelData) {
             return MoveOutcome(
                 MoveResult.BLOCKED,
                 !lightBoard.canEnter(l, before.brokenL, before.gatesOpen),
-                !shadowBoard.canEnter(s, before.brokenS, before.gatesOpen)
+                !shadowBoard.frozen && !shadowBoard.canEnter(s, before.brokenS, before.gatesOpen)
             )
         }
         history.addLast(before to moveCount)
@@ -247,7 +264,7 @@ class PuzzleState(val level: LevelData) {
         return MoveOutcome(
             MoveResult.MOVED,
             lightTo = next.light, shadowTo = next.shadow,
-            lightStep = before.light.step(swipe), shadowStep = before.shadow.step(swipe.opposite()),
+            lightStep = before.light.step(swipe), shadowStep = if (shadowBoard.frozen) before.shadow else before.shadow.step(swipe.opposite()),
             lightCore = lc, shadowCore = sc,
             lightCrumbled = if (next.brokenL != before.brokenL) before.light else null,
             shadowCrumbled = if (next.brokenS != before.brokenS) before.shadow else null,
@@ -327,6 +344,21 @@ object Rewards {
     fun loginReward(day: Int) = LOGIN[(day - 1).coerceIn(0, 6)]
 
     fun xp(levelsCompleted: Int, totalStars: Int) = levelsCompleted * 60 + totalStars * 40
+
+    // Player XP (stored): every win gives XP, levels need a little more XP each time.
+    const val WIN_BASE_COINS = 5
+    const val CHEST_EVERY = 3
+    const val LEVEL_UP_COINS = 100
+    fun winXp(stars: Int) = 20 + 10 * stars
+    fun xpNeeded(level: Int) = 80 + 40 * (level - 1)
+    /** (player level, xp into that level, xp needed for the next level). */
+    fun levelInfo(totalXp: Int): Triple<Int, Int, Int> {
+        var level = 1
+        var rest = totalXp
+        while (rest >= xpNeeded(level)) { rest -= xpNeeded(level); level++ }
+        return Triple(level, rest, xpNeeded(level))
+    }
+    fun streakMultiplier(streak: Int) = when { streak >= 5 -> 3; streak >= 3 -> 2; else -> 1 }
     fun playerLevel(xp: Int) = 1 + xp / XP_PER_LEVEL
     fun xpIntoLevel(xp: Int) = xp % XP_PER_LEVEL
 
@@ -374,4 +406,32 @@ object Achievements {
         val g = maxOf(1, goal)
         return Achievement(title, desc, minOf(progress, g), g)
     }
+}
+
+/** What the player gets at each player level. Every level up also pays coins and a hint. */
+object Unlocks {
+    enum class Kind { DAILY, CHEST, RELAX, SKIN, TIME_ATTACK, TRAIL }
+    class Unlock(val level: Int, val kind: Kind, val id: Int, val label: String)
+
+    val ALL = listOf(
+        Unlock(2, Kind.DAILY, 0, "Daily Challenge"),
+        Unlock(2, Kind.CHEST, 0, "Free chest"),
+        Unlock(3, Kind.RELAX, 0, "Relax mode"),
+        Unlock(4, Kind.SKIN, 1, "Sunset orbs"),
+        Unlock(5, Kind.TIME_ATTACK, 0, "Time Attack"),
+        Unlock(6, Kind.TRAIL, 1, "Spark trail"),
+        Unlock(7, Kind.CHEST, 0, "Free chest"),
+        Unlock(8, Kind.SKIN, 2, "Toxic orbs"),
+        Unlock(10, Kind.TRAIL, 2, "Rainbow trail"),
+        Unlock(12, Kind.SKIN, 4, "Royal orbs"),
+        Unlock(15, Kind.TRAIL, 3, "Star trail")
+    )
+    const val DAILY_LEVEL = 2
+    const val RELAX_LEVEL = 3
+    const val TIME_ATTACK_LEVEL = 5
+
+    fun at(level: Int) = ALL.filter { it.level == level }
+    /** The next unlock above [level], or null when everything is unlocked. */
+    fun next(level: Int) = ALL.firstOrNull { it.level > level }
+    fun trailLevel(id: Int) = ALL.firstOrNull { it.kind == Kind.TRAIL && it.id == id }?.level ?: 1
 }

@@ -153,7 +153,8 @@ object LevelGen {
 
     fun copyLevel(l: LevelData) = LevelData(
         l.levelId, l.worldId, l.gridWidth, l.gridHeight, l.maxMoves, l.hint, l.light.copy(), l.shadow.copy(),
-        StarThresholds(l.starThresholds.threeStarsMaxMoves, l.starThresholds.twoStarsMaxMoves, l.starThresholds.oneStarMaxMoves)
+        StarThresholds(l.starThresholds.threeStarsMaxMoves, l.starThresholds.twoStarsMaxMoves, l.starThresholds.oneStarMaxMoves),
+        l.tutorial
     )
 }
 

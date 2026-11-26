@@ -4,18 +4,73 @@
   "gridWidth": 5,
   "gridHeight": 5,
   "maxMoves": 12,
-  "hint": "NEW: Energy Cores! Collect every core on a board before its exit opens.",
+  "hint": "",
   "light": {
-    "start": {"x": 3, "y": 3},
-    "exit": {"x": 2, "y": 4},
-    "walls": [{"x": 4, "y": 0}, {"x": 1, "y": 1}, {"x": 3, "y": 1}, {"x": 3, "y": 2}, {"x": 2, "y": 3}],
-    "cores": [{"x": 0, "y": 4}]
+    "start": {
+      "x": 3,
+      "y": 3
+    },
+    "exit": {
+      "x": 2,
+      "y": 4
+    },
+    "walls": [
+      {
+        "x": 4,
+        "y": 0
+      },
+      {
+        "x": 1,
+        "y": 1
+      },
+      {
+        "x": 3,
+        "y": 1
+      },
+      {
+        "x": 3,
+        "y": 2
+      },
+      {
+        "x": 2,
+        "y": 3
+      }
+    ],
+    "cores": [
+      {
+        "x": 0,
+        "y": 4
+      }
+    ]
   },
   "shadow": {
-    "start": {"x": 1, "y": 2},
-    "exit": {"x": 2, "y": 1},
-    "walls": [{"x": 0, "y": 2}, {"x": 3, "y": 2}, {"x": 4, "y": 2}]
+    "start": {
+      "x": 1,
+      "y": 2
+    },
+    "exit": {
+      "x": 2,
+      "y": 1
+    },
+    "walls": [
+      {
+        "x": 0,
+        "y": 2
+      },
+      {
+        "x": 3,
+        "y": 2
+      },
+      {
+        "x": 4,
+        "y": 2
+      }
+    ]
   },
-  "starThresholds": {"threeStarsMaxMoves": 6, "twoStarsMaxMoves": 8, "oneStarMaxMoves": 12},
+  "starThresholds": {
+    "threeStarsMaxMoves": 6,
+    "twoStarsMaxMoves": 8,
+    "oneStarMaxMoves": 12
+  },
   "_solution": "DLLLRR"
 }

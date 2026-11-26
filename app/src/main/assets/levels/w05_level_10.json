@@ -6,18 +6,85 @@
   "maxMoves": 18,
   "hint": "",
   "light": {
-    "start": {"x": 1, "y": 2},
-    "exit": {"x": 2, "y": 4},
-    "walls": [{"x": 1, "y": 3}, {"x": 2, "y": 3}],
-    "cores": [{"x": 4, "y": 1}, {"x": 4, "y": 3}],
-    "crumble": [{"x": 3, "y": 2}]
+    "start": {
+      "x": 1,
+      "y": 0
+    },
+    "exit": {
+      "x": 1,
+      "y": 3
+    },
+    "walls": [
+      {
+        "x": 2,
+        "y": 1
+      },
+      {
+        "x": 2,
+        "y": 2
+      }
+    ],
+    "cores": [
+      {
+        "x": 3,
+        "y": 4
+      }
+    ],
+    "crumble": [
+      {
+        "x": 4,
+        "y": 3
+      },
+      {
+        "x": 1,
+        "y": 4
+      },
+      {
+        "x": 3,
+        "y": 3
+      }
+    ]
   },
   "shadow": {
-    "start": {"x": 3, "y": 3},
-    "exit": {"x": 2, "y": 1},
-    "walls": [{"x": 3, "y": 0}, {"x": 0, "y": 1}, {"x": 1, "y": 1}, {"x": 2, "y": 2}, {"x": 3, "y": 2}, {"x": 3, "y": 4}],
-    "crumble": [{"x": 2, "y": 0}, {"x": 2, "y": 4}]
+    "start": {
+      "x": 4,
+      "y": 4
+    },
+    "exit": {
+      "x": 4,
+      "y": 1
+    },
+    "walls": [
+      {
+        "x": 4,
+        "y": 0
+      },
+      {
+        "x": 2,
+        "y": 4
+      }
+    ],
+    "cores": [
+      {
+        "x": 1,
+        "y": 0
+      },
+      {
+        "x": 2,
+        "y": 3
+      }
+    ],
+    "crumble": [
+      {
+        "x": 0,
+        "y": 2
+      }
+    ]
   },
-  "starThresholds": {"threeStarsMaxMoves": 15, "twoStarsMaxMoves": 17, "oneStarMaxMoves": 18},
-  "_solution": "RURRDDULLLLDDRR"
+  "starThresholds": {
+    "threeStarsMaxMoves": 15,
+    "twoStarsMaxMoves": 17,
+    "oneStarMaxMoves": 18
+  },
+  "_solution": "DDDRDRRUUULDDLL"
 }

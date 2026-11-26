@@ -14,7 +14,7 @@ enum class PlayMode { LEVEL, DAILY, TIME_ATTACK }
  * Pause / Level Complete / Level Failed / Hint / mechanic intro / Time Attack panels.
  */
 class Gameplay(private val game: Game) {
-    private enum class Panel { NONE, PAUSE, VICTORY, FAILURE, HINT, INTRO, TIME_UP }
+    private enum class Panel { NONE, PAUSE, VICTORY, FAILURE, HINT, INTRO, TIME_UP, CHEST }
     private enum class State { PLAYING, ANIMATING, PAUSED, VICTORY, FAILED }
 
     private val moveDuration = 0.13f
@@ -56,6 +56,24 @@ class Gameplay(private val game: Game) {
     private var vTime = 0f
     private var vStarsShown = 0
     private var vCoinTick = 0f
+    private var vXpFrom = 0
+    private var vXpTo = 0
+    private var vXpGain = 0
+    private var vLevelShown = 1
+    private var vLevelUpAt = -10f
+    private var vLevelUpText = ""
+    private var vStreak = 0
+    private var vMult = 1
+    private var vChestReady = false
+    private var vAuto = 0f
+    private var chestT = 0f
+    private var chestText = ""
+    private var chestOpened = false
+
+    // Guided tutorial and near-miss nudge.
+    private var guide: Direction? = null
+    private var nearMiss = false
+    private var shadowAppear = 1f
     private var pendingHint = Direction.UP
     private var hintCostText = ""
 
@@ -72,7 +90,9 @@ class Gameplay(private val game: Game) {
     private var taNewBest = false
     private var taCoins = 0
 
-    fun load(level: LevelData, mode: PlayMode) {
+    fun load(source: LevelData, mode: PlayMode) {
+        val relax = mode == PlayMode.LEVEL && game.save.relaxed && game.save.unlocked(Unlocks.RELAX_LEVEL) && source.maxMoves > 0
+        val level = if (relax) LevelGen.copyLevel(source).also { it.maxMoves = 0 } else source
         val p = PuzzleState(level)
         puzzle = p
         this.mode = mode
@@ -89,7 +109,9 @@ class Gameplay(private val game: Game) {
         colorL = skin.light; colorS = skin.shadow
         light.accent = colorL; shadow.accent = colorS
         scale = 0f // forces a fresh layout and token snap on the next frame
-        if (mode == PlayMode.LEVEL && !game.save.tutorialDone && game.levels.currentIndex == 0) arrow = PuzzleSolver.solve(level)?.firstOrNull()
+        nearMiss = false
+        shadowAppear = if (level.tutorial == "shadow") 0f else 1f
+        updateGuide()
         state = State.PLAYING
         if (mode == PlayMode.LEVEL && level.levelId == 1 && level.worldId in 2..5 && !game.save.introSeen(level.worldId)) {
             state = State.PAUSED
@@ -127,6 +149,13 @@ class Gameplay(private val game: Game) {
         requestNextPuzzle()
     }
 
+    /** Guided levels always show the next best swipe with a ghost finger. */
+    private fun updateGuide() {
+        val p = puzzle ?: return
+        guide = if (p.level.tutorial.isNotEmpty() && !p.isSolved) PuzzleSolver.solve(p.level, p.state)?.firstOrNull() else null
+        arrow = guide
+    }
+
     private fun tokenPos(light: Boolean): Pair<Float, Float> {
         val p = puzzle!!
         return if (light) cellOffset(p.lightBoard, p.lightPos, scale) else cellOffset(p.shadowBoard, p.shadowPos, scale)
@@ -162,7 +191,7 @@ class Gameplay(private val game: Game) {
 
     fun swipe(d: Direction) {
         val p = puzzle ?: return
-        if (taWaiting) return
+        if (taWaiting || shadowAppear < 1f) return
         if (state == State.ANIMATING && panel == Panel.NONE) { queued = d; return } // one swipe is remembered while moving
         if (state != State.PLAYING || panel != Panel.NONE) return
         val o = p.tryMove(d)
@@ -219,6 +248,10 @@ class Gameplay(private val game: Game) {
             message = null
             if (!game.save.tutorialDone) game.save.tutorialDone = true
             if (u != null) landingFx(u, p, o)
+            updateGuide()
+            val was = nearMiss
+            nearMiss = guide == null && p.moveCount >= 2 && p.winningMove() != null
+            if (nearMiss && !was) { game.play(Sfx.STAR, 1.3f); game.pulse(15) }
         } else {
             combo = 0
             game.play(Sfx.BLOCKED)
@@ -242,6 +275,7 @@ class Gameplay(private val game: Game) {
             }
             o.failedNow -> {
                 state = State.FAILED
+                game.save.winStreak = 0
                 game.play(Sfx.FAIL)
                 game.pulse(60)
                 panel = Panel.FAILURE
@@ -291,22 +325,35 @@ class Gameplay(private val game: Game) {
         if (mode == PlayMode.TIME_ATTACK) { timeAttackSolved(p); return }
         val stars = StarManager.calculate(level, p.moveCount)
         val coins: Int
+        save.winStreak = save.winStreak + 1
+        vStreak = save.winStreak
+        vMult = 1
         if (daily) {
             coins = save.completeDaily(game.today)
         } else {
             val previous = save.stars(level)
-            coins = Rewards.levelCoins(previous, stars)
+            vMult = Rewards.streakMultiplier(vStreak)
+            coins = (Rewards.levelCoins(previous, stars) + Rewards.WIN_BASE_COINS) * vMult
             save.recordStars(level, stars)
             if (!usedHint) save.markNoHint(level)
             save.addCoins(coins)
             game.levels.markCurrentCompleted()
         }
+        vXpFrom = save.xp
+        vXpGain = Rewards.winXp(stars)
+        vLevelShown = Rewards.levelInfo(vXpFrom).first
+        save.addXp(vXpGain)
+        vXpTo = save.xp
+        if (!daily) save.chestProgress = minOf(Rewards.CHEST_EVERY, save.chestProgress + 1)
+        vChestReady = save.chestProgress >= Rewards.CHEST_EVERY
         vStars = stars
         vCoins = coins
         vLast = !daily && game.levels.isLastLevel
         vTime = 0f
         vStarsShown = 0
         vCoinTick = 0f
+        vAuto = 0f
+        vLevelUpAt = -10f
         panel = Panel.VICTORY
         ui?.let { it.particles.confetti(intArrayOf(colorL, colorS, Neon.ENERGY, Neon.PINK, Neon.SUCCESS), it.halfW, it.halfH, 110) }
     }
@@ -333,6 +380,7 @@ class Gameplay(private val game: Game) {
         if (taNewBest) save.timeAttackBest = taScore
         taCoins = taScore * 15
         save.addCoins(taCoins)
+        save.addXp(taScore * 10)
         game.play(Sfx.FAIL)
         game.pulse(60)
         ui?.shake(0.12f)
@@ -423,13 +471,22 @@ class Gameplay(private val game: Game) {
         val topH = 1.85f
         val bottomH = 2.15f
         val gap = 0.8f
-        val per = (2f * ui.halfH - topH - bottomH - gap) / 2f
         val bw = level.gridWidth * CELL + 0.28f
         val bh = level.gridHeight * CELL + 0.28f
-        val s = minOf((2f * ui.halfW - 0.35f) / bw, per / bh, 1.75f)
-        lightY = ui.halfH - topH - per / 2f
-        shadowY = -ui.halfH + bottomH + per / 2f
-        hintY = (lightY - per / 2f + shadowY + per / 2f) / 2f
+        val s: Float
+        if (level.solo) {
+            val avail = 2f * ui.halfH - topH - bottomH - 2.2f
+            s = minOf((2f * ui.halfW - 0.35f) / bw, avail / bh, 1.75f)
+            lightY = (ui.halfH - topH - ui.halfH + bottomH) / 2f + 0.6f
+            shadowY = -50f
+            hintY = lightY - bh * s / 2f - 0.9f
+        } else {
+            val per = (2f * ui.halfH - topH - bottomH - gap) / 2f
+            s = minOf((2f * ui.halfW - 0.35f) / bw, per / bh, 1.75f)
+            lightY = ui.halfH - topH - per / 2f
+            shadowY = -ui.halfH + bottomH + per / 2f
+            hintY = (lightY - per / 2f + shadowY + per / 2f) / 2f
+        }
         if (s != scale) { scale = s; snapTokens() }
     }
 
@@ -440,8 +497,10 @@ class Gameplay(private val game: Game) {
         if (p == null) { waitingScreen(ui); return }
         layout(ui, p.level)
         val trailL = 0.42f * scale
-        light.update(dt) { x, y -> ui.particles.dot(x, lightY + y, Neon.a(colorL, 0.8f), trailL, 0.22f) }
-        shadow.update(dt) { x, y -> ui.particles.dot(x, shadowY + y, Neon.a(colorS, 0.8f), trailL, 0.22f) }
+        val trail = game.save.trail.takeIf { game.save.ownsTrail(it) } ?: 0
+        light.update(dt) { x, y -> trailFx(ui, trail, x, lightY + y, colorL, trailL) }
+        shadow.update(dt) { x, y -> trailFx(ui, trail, x, shadowY + y, colorS, trailL) }
+        if (shadowAppear < 1f) shadowAppear = minOf(1f, shadowAppear + dt / 0.9f).also { if (it >= 1f) { game.play(Sfx.PORTAL); ui.particles.ring(0f, shadowY, colorS, 6f * scale, 0.6f) } }
         light.teleportedAt?.let { portalFx(ui, it, lightY, p.lightBoard, p.level.light); light.teleportedAt = null }
         shadow.teleportedAt?.let { portalFx(ui, it, shadowY, p.shadowBoard, p.level.shadow); shadow.teleportedAt = null }
         if (animLeft > 0f) {
@@ -461,7 +520,17 @@ class Gameplay(private val game: Game) {
             Panel.HINT -> hintPanel(ui)
             Panel.INTRO -> introPanel(ui, cur.level.worldId)
             Panel.TIME_UP -> timeUpPanel(ui)
+            Panel.CHEST -> chestPanel(ui, dt)
             Panel.NONE -> {}
+        }
+    }
+
+    private fun trailFx(ui: Ui, kind: Int, x: Float, y: Float, color: Int, size: Float) {
+        when (kind) {
+            1 -> { ui.particles.dot(x, y, Neon.a(color, 0.7f), size * 0.8f, 0.2f); if (Math.random() < 0.5) ui.particles.burst(x, y, color, 1, 1.5f, 0.07f, 0.35f) }
+            2 -> ui.particles.dot(x, y, android.graphics.Color.HSVToColor(floatArrayOf((ui.time * 360f) % 360f, 0.8f, 1f)), size, 0.3f)
+            3 -> { ui.particles.dot(x, y, Neon.a(color, 0.6f), size * 0.7f, 0.2f); if (Math.random() < 0.35) ui.particles.burst(x, y, Neon.ENERGY, 1, 1.2f, 0.1f, 0.5f) }
+            else -> ui.particles.dot(x, y, Neon.a(color, 0.8f), size, 0.22f)
         }
     }
 
@@ -535,22 +604,51 @@ class Gameplay(private val game: Game) {
 
         // Boards and tokens.
         drawBoard(ui, p.lightBoard, colorL, 0f, lightY, scale, p, true)
-        drawBoard(ui, p.shadowBoard, colorS, 0f, shadowY, scale, p, false)
+        val e = 1f - (1f - shadowAppear) * (1f - shadowAppear) * (1f - shadowAppear)
+        val sy = shadowY - (1f - e) * (ui.halfH + 6f)
+        if (!p.level.solo) drawBoard(ui, p.shadowBoard, colorS, 0f, sy, scale, p, false)
         light.draw(ui, 0f, lightY)
-        shadow.draw(ui, 0f, shadowY)
+        if (!p.level.solo) shadow.draw(ui, 0f, sy)
 
-        arrow?.let { d ->
+        if (shadowAppear >= 1f) arrow?.let { d ->
             val k = (ui.time * 0.8f) % 1f
             val s = k * k * (3 - 2 * k)
             val off = (-0.8f + 1.6f * s) * scale
             val alpha = sin(k * PI).toFloat() * 0.9f
             ui.arrow(d.dx * off, lightY - d.dy * off, 1.6f * scale, angleOf(d), Neon.a(colorL, alpha))
             val o = d.opposite()
-            ui.arrow(o.dx * off, shadowY - o.dy * off, 1.6f * scale, angleOf(o), Neon.a(colorS, alpha))
+            if (!p.level.solo) ui.arrow(o.dx * off, shadowY - o.dy * off, 1.6f * scale, angleOf(o), Neon.a(colorS, alpha))
+        }
+        // Ghost finger showing the swipe on guided levels.
+        val g = guide
+        if (g != null && shadowAppear >= 1f && state == State.PLAYING && panel == Panel.NONE) {
+            val k = (ui.time * 0.9f) % 1f
+            val travel = 2.2f * minOf(scale, 1.3f)
+            val s0 = (k / 0.7f).coerceIn(0f, 1f)
+            val ease = s0 * s0 * (3 - 2 * s0)
+            val a = if (k < 0.7f) 1f else (1f - (k - 0.7f) / 0.3f)
+            val fx0 = -g.dx * travel / 2f
+            val fy0 = lightY + g.dy * travel / 2f
+            val fx = fx0 + g.dx * travel * ease
+            val fy = fy0 - g.dy * travel * ease
+            for (i in 1..6) {
+                val t = (ease - i * 0.05f).coerceAtLeast(0f)
+                ui.circle(fx0 + g.dx * travel * t, fy0 - g.dy * travel * t, 0.5f - i * 0.05f, Neon.a(0xFFFFFFFF.toInt(), 0.12f * a))
+            }
+            ui.glow(fx, fy, 1.6f, 1.6f, Neon.a(0xFFFFFFFF.toInt(), 0.35f * a))
+            ui.circle(fx, fy, 0.75f, Neon.a(0xFFFFFFFF.toInt(), 0.9f * a))
+            ui.ring(fx, fy, 1.05f, 1.05f, Neon.a(0xFFFFFFFF.toInt(), 0.5f * a), 0.06f)
         }
 
-        val hint = message ?: level.hint.ifEmpty { if (mode == PlayMode.TIME_ATTACK) "Quick! Light and Shadow to their exits." else "←  Swipe to Move  →" }
-        ui.text(wrap(hint, 42), 0f, hintY, 0.27f, Neon.a(Neon.TEXT, 0.8f))
+        val hint = message ?: level.hint.ifEmpty { if (mode == PlayMode.TIME_ATTACK) "Quick! Light and Shadow to their exits." else "" }
+        if (nearMiss && message == null) {
+            val k = 1f + 0.08f * sin(ui.time * 8f)
+            ui.glow(0f, hintY, 6f, 1.4f, Neon.a(Neon.ENERGY, 0.35f))
+            ui.text("SO CLOSE! 1 move to win!", 0f, hintY, 0.42f * k, Neon.ENERGY, logo = true)
+        } else if (level.tutorial.isNotEmpty() || level.solo) {
+            val k = 1f + 0.04f * sin(ui.time * 4f)
+            ui.text(wrap(hint, 30), 0f, hintY, 0.5f * k, Neon.TEXT, logo = true)
+        } else ui.text(wrap(hint, 42), 0f, hintY, 0.27f, Neon.a(Neon.TEXT, 0.8f))
         if (combo >= 3 && ui.time - lastMoveAt < 0.9f) {
             val a = (1f - (ui.time - lastMoveAt) / 0.9f).coerceIn(0f, 1f)
             ui.text("COMBO x${combo + 1}", ui.halfW - 1.4f, hintY, 0.3f, Neon.a(Neon.ENERGY, a), logo = true)
@@ -598,15 +696,14 @@ class Gameplay(private val game: Game) {
     private fun victoryPanel(ui: Ui, p: PuzzleState, dt: Float) {
         vTime += dt
         ui.dim()
-        ui.card(0f, -0.6f, 7.2f, 9.0f, colorS)
+        ui.card(0f, -0.5f, 7.6f, 10.6f, colorS)
         for (i in 0 until 3) {
             val x = (i - 1) * 1.7f
-            val y = if (i == 1) 4.6f else 4.2f
-            val size = if (i == 1) 1.9f else 1.5f
-            val appear = 0.25f + i * 0.32f
-            val on = i < vStars
+            val y = if (i == 1) 4.75f else 4.4f
+            val size = if (i == 1) 1.8f else 1.45f
+            val appear = 0.12f + i * 0.2f
             ui.star(x, y, size, Neon.a(Neon.TEXT, 0.15f))
-            if (on && vTime >= appear) {
+            if (i < vStars && vTime >= appear) {
                 if (vStarsShown <= i) {
                     vStarsShown = i + 1
                     game.play(Sfx.STAR, 1f + 0.15f * i)
@@ -614,32 +711,146 @@ class Gameplay(private val game: Game) {
                     ui.particles.burst(x, y, Neon.ENERGY, 20, 4f, 0.13f, 0.6f)
                     ui.particles.ring(x, y, Neon.ENERGY, 2.6f, 0.5f)
                 }
-                val k = easeOutBack((vTime - appear) / 0.3f)
+                val k = easeOutBack((vTime - appear) / 0.25f)
                 ui.glow(x, y, 2.4f * k, 2.4f * k, Neon.a(Neon.ENERGY, 0.5f))
                 ui.star(x, y, size * k, Neon.ENERGY)
             }
         }
-        ui.rrect(0f, 2.7f, 6.6f, 1.25f, Neon.ORANGE)
-        ui.text(if (daily) "Daily Complete!" else if (vLast) "World Clear!" else "Level Complete!", 0f, 2.7f, 0.62f, Neon.TEXT)
+        ui.rrect(0f, 3.05f, 6.8f, 1.1f, Neon.ORANGE)
+        ui.text(if (daily) "Daily Complete!" else if (vLast) "World Clear!" else listOf("Level Complete!", "Awesome!", "Brilliant!", "Great job!")[(p.level.levelId + p.level.worldId) % 4], 0f, 3.05f, 0.58f, Neon.TEXT)
         val best = p.level.starThresholds.threeStarsMaxMoves
-        ui.text("Moves:  ${p.moveCount}\nBest:  $best", 0f, 1.25f, 0.44f, Neon.TEXT)
-        if (p.moveCount <= best && vTime > 1.1f) ui.text("PERFECT!", 2.2f, 1.5f, 0.36f, Neon.a(Neon.ENERGY, 0.7f + 0.3f * sin(ui.time * 6f)), logo = true)
+        ui.text("${p.moveCount} moves  ·  best $best", 0f, 2.1f, 0.38f, Neon.a(Neon.TEXT, 0.85f))
+        if (p.moveCount <= best && vTime > 0.7f) ui.text("PERFECT!", 2.55f, 2.45f, 0.34f, Neon.a(Neon.ENERGY, 0.7f + 0.3f * sin(ui.time * 6f)), logo = true)
+
         // Coins count up.
-        val coinStart = 0.25f + 3 * 0.32f
-        val t = ((vTime - coinStart) / 0.7f).coerceIn(0f, 1f)
+        val coinStart = 0.7f
+        val t = ((vTime - coinStart) / 0.55f).coerceIn(0f, 1f)
         val shown = (vCoins * t).toInt()
         if (t in 0.001f..0.999f && vCoins > 0) {
             vCoinTick -= dt
-            if (vCoinTick <= 0f) { vCoinTick = 0.07f; game.play(Sfx.COIN, 0.9f + 0.4f * t) }
+            if (vCoinTick <= 0f) { vCoinTick = 0.06f; game.play(Sfx.COIN, 0.9f + 0.4f * t) }
         }
-        ui.card(0f, -0.35f, 3.6f, 1.2f, Neon.BLUE, 0.9f)
+        val cx = if (vMult > 1 || vStreak >= 2) -1.4f else 0f
+        ui.card(cx, 1.0f, 3.4f, 1.1f, Neon.BLUE, 0.9f)
         val pop = if (t in 0.01f..0.99f) 1f + 0.08f * sin(ui.time * 30f) else 1f
-        ui.circle(-0.9f, -0.35f, 0.62f * pop, Neon.ENERGY)
-        ui.ring(-0.9f, -0.35f, 0.42f * pop, 0.42f * pop, Neon.a(Neon.BG, 0.35f), 0.06f)
-        ui.text("+$shown", -0.48f, -0.35f, 0.5f, Neon.TEXT, Align.LEFT)
-        ui.button(if (daily || vLast) "Continue" else "Next Level", 0f, -1.9f, 5.0f, 1.15f, Neon.SUCCESS, Style.FILLED) { next() }
-        ui.button("Replay", -1.3f, -3.35f, 2.4f, 1.0f, colorS) { restart() }
-        ui.button("Home", 1.3f, -3.35f, 2.4f, 1.0f, Neon.BLUE, Style.FILLED) { game.show(AppScreen.MAIN_MENU) }
+        ui.circle(cx - 0.85f, 1.0f, 0.6f * pop, Neon.ENERGY)
+        ui.ring(cx - 0.85f, 1.0f, 0.4f * pop, 0.4f * pop, Neon.a(Neon.BG, 0.35f), 0.06f)
+        ui.text("+$shown", cx - 0.45f, 1.0f, 0.48f, Neon.TEXT, Align.LEFT)
+        if (vMult > 1 || vStreak >= 2) {
+            val hot = if (vMult > 1) Neon.ORANGE else Neon.PINK
+            val k = 1f + 0.05f * sin(ui.time * 7f)
+            ui.card(1.85f, 1.0f, 2.9f, 1.1f, hot, 0.9f)
+            ui.text("STREAK $vStreak", 1.85f, 1.2f, 0.3f * k, hot, logo = true)
+            ui.text(if (vMult > 1) "x$vMult coins!" else "3 = x2 coins", 1.85f, 0.78f, 0.26f, Neon.TEXT)
+        }
+
+        // XP bar that fills up, with a level-up burst.
+        val xt = ((vTime - 1.0f) / 0.7f).coerceIn(0f, 1f)
+        val xpNow = vXpFrom + ((vXpTo - vXpFrom) * xt).toInt()
+        val (lv, into, need) = Rewards.levelInfo(xpNow)
+        if (lv > vLevelShown) {
+            vLevelShown = lv
+            vLevelUpAt = ui.time
+            vLevelUpText = Unlocks.at(lv).joinToString("  +  ") { it.label }.ifEmpty { "+${Rewards.LEVEL_UP_COINS} coins  +1 hint" }
+            game.play(Sfx.WIN, 1.15f)
+            game.pulse(60)
+            ui.shake(0.1f)
+            ui.particles.confetti(intArrayOf(Neon.ENERGY, colorL, colorS, Neon.SUCCESS), ui.halfW, ui.halfH, 80)
+            ui.particles.burst(0f, -0.2f, Neon.SUCCESS, 30, 5f, 0.15f, 0.8f)
+        }
+        ui.text("Lv $lv", -3.2f, -0.2f, 0.36f, Neon.SUCCESS, Align.LEFT, logo = true)
+        val bw = 4.4f
+        val bx = -2.1f
+        ui.rrect(bx + bw / 2, -0.2f, bw, 0.3f, Neon.a(Neon.TEXT, 0.12f), 0.15f)
+        val f = (into.toFloat() / need).coerceIn(0f, 1f)
+        if (f > 0.01f) ui.rrect(bx + bw * f / 2, -0.2f, bw * f, 0.3f, Neon.SUCCESS, 0.15f)
+        ui.text("+$vXpGain XP", 3.3f, -0.2f, 0.28f, Neon.SUCCESS, Align.RIGHT)
+        Unlocks.next(lv)?.let { ui.text("Lv ${it.level}: ${it.label}", 0.1f, -0.72f, 0.26f, Neon.a(Neon.TEXT, 0.6f)) }
+
+        // Reward chest.
+        if (vChestReady) {
+            val k = 1f + 0.06f * sin(ui.time * 6f)
+            ui.glow(0f, -1.75f, 5.5f * k, 1.8f * k, Neon.a(Neon.ENERGY, 0.45f))
+            ui.button("OPEN CHEST!", 0.35f, -1.75f, 5.2f, 1.05f, Neon.ENERGY, Style.FILLED) { chestT = 0f; chestOpened = false; panel = Panel.CHEST }
+            drawChest(ui, -2.0f, -1.75f, 0.75f * k, false)
+        } else if (!daily) {
+            val prog = game.save.chestProgress
+            drawChest(ui, -1.6f, -1.75f, 0.6f, false)
+            for (i in 0 until Rewards.CHEST_EVERY) ui.circle(-0.6f + i * 0.55f, -1.75f, 0.32f, if (i < prog) Neon.ENERGY else Neon.a(Neon.TEXT, 0.15f))
+            ui.text("Chest", 1.5f, -1.75f, 0.3f, Neon.a(Neon.TEXT, 0.7f))
+        }
+
+        // Next level, auto after a short moment.
+        val auto = mode == PlayMode.LEVEL && !vLast && !vChestReady
+        if (auto && vTime > 1.9f) {
+            vAuto += dt
+            if (vAuto >= 2.0f) { next(); return }
+        }
+        ui.button(if (daily || vLast) "Continue" else "Next Level  ▸", 0f, -3.05f, 5.0f, 1.15f, Neon.SUCCESS, Style.FILLED) { next() }
+        if (auto && vAuto > 0f) { val w = 4.8f * (vAuto / 2.0f).coerceIn(0f, 1f); ui.rrect(-2.4f + w / 2, -3.55f, w, 0.1f, Neon.TEXT, 0.05f) }
+        ui.button("Replay", -1.3f, -4.4f, 2.4f, 0.95f, colorS) { restart() }
+        ui.button("Home", 1.3f, -4.4f, 2.4f, 0.95f, Neon.BLUE, Style.FILLED) { game.show(AppScreen.MAIN_MENU) }
+
+        val age = ui.time - vLevelUpAt
+        if (age < 2.6f) {
+            val k = easeOutBack(age / 0.35f)
+            ui.glow(0f, 6.6f, 8f, 3f, Neon.a(Neon.SUCCESS, 0.4f))
+            ui.text("LEVEL UP!  Lv $vLevelShown", 0f, 6.85f, 0.8f * k, Neon.SUCCESS, logo = true)
+            ui.text(vLevelUpText, 0f, 6.05f, 0.34f, Neon.TEXT)
+        }
+    }
+
+    private fun drawChest(ui: Ui, x: Float, y: Float, s: Float, open: Boolean) {
+        val wood = 0xFF8A4B1F.toInt()
+        val gold = Neon.ENERGY
+        ui.rrect(x, y - 0.12f * s, 1.5f * s, 0.95f * s, gold, 0.12f * s)
+        ui.rrect(x, y - 0.12f * s, 1.36f * s, 0.81f * s, wood, 0.1f * s)
+        val ly = if (open) y + 0.75f * s else y + 0.45f * s
+        ui.rrect(x, ly, 1.56f * s, 0.5f * s, gold, 0.18f * s)
+        ui.rrect(x, ly, 1.42f * s, 0.36f * s, wood, 0.14f * s)
+        ui.box(x, y - 0.12f * s, 0.16f * s, 0.95f * s, gold)
+        if (!open) ui.circle(x, y + 0.2f * s, 0.32f * s, gold)
+    }
+
+    private fun chestPanel(ui: Ui, dt: Float) {
+        chestT += dt
+        ui.dim(0.9f)
+        val openAt = 1.0f
+        if (!chestOpened && chestT >= openAt) {
+            chestOpened = true
+            val save = game.save
+            val r = Math.random()
+            chestText = when {
+                r < 0.15 -> { save.addCoins(300); "JACKPOT!  +300 coins" }
+                r < 0.45 -> { save.addHints(2); save.addCoins(40); "+2 hints  +40 coins" }
+                else -> { val c = 60 + (Math.random() * 90).toInt(); save.addCoins(c); "+$c coins" }
+            }
+            save.chestProgress = 0
+            game.play(Sfx.WIN, 1.1f)
+            game.pulse(70)
+            ui.shake(0.15f)
+            ui.particles.burst(0f, 1.0f, Neon.ENERGY, 50, 7f, 0.18f, 1.0f)
+            ui.particles.ring(0f, 1.0f, Neon.ENERGY, 6f, 0.7f)
+            ui.particles.confetti(intArrayOf(Neon.ENERGY, Neon.PINK, Neon.SUCCESS, colorL), ui.halfW, ui.halfH, 120)
+        }
+        if (!chestOpened) {
+            val wob = sin(chestT * 40f) * 0.08f * chestT
+            if ((chestT * 10).toInt() % 3 == 0) ui.particles.burst(wob, 1.0f, Neon.ENERGY, 1, 2f, 0.08f, 0.4f)
+            ui.glow(0f, 1.0f, 5f + chestT * 2f, 5f + chestT * 2f, Neon.a(Neon.ENERGY, 0.3f + chestT * 0.3f))
+            drawChest(ui, wob, 1.0f, 2.2f, false)
+            ui.text("Opening...", 0f, -2.2f, 0.5f, Neon.TEXT)
+        } else {
+            ui.glow(0f, 1.0f, 8f, 8f, Neon.a(Neon.ENERGY, 0.45f + 0.1f * sin(ui.time * 4f)))
+            drawChest(ui, 0f, 1.0f, 2.2f, true)
+            val k = easeOutBack((chestT - openAt) / 0.35f)
+            ui.text(chestText, 0f, 4.2f, 0.7f * k, Neon.ENERGY, logo = true)
+            ui.button("COLLECT", 0f, -3.0f, 4.6f, 1.2f, Neon.SUCCESS, Style.FILLED) {
+                vChestReady = false
+                vAuto = 0f
+                vTime = maxOf(vTime, 1.9f)
+                panel = Panel.VICTORY
+            }
+        }
     }
 
     private fun failurePanel(ui: Ui, p: PuzzleState) {
@@ -651,7 +862,9 @@ class Gameplay(private val game: Game) {
         ui.text("Moves:  ${p.moveCount}\nBest:  ${p.level.starThresholds.threeStarsMaxMoves}", 0f, 1.25f, 0.44f, Neon.TEXT)
         ui.button("↻  Retry", 0f, -0.35f, 5.0f, 1.15f, Neon.ENERGY, Style.FILLED) { restart() }
         ui.button("↺  Undo", 0f, -1.75f, 5.0f, 1.0f, colorL, enabled = p.canUndo) { undo() }
-        ui.button("Level Select", 0f, -3.0f, 5.0f, 1.0f, colorL) { exitToList() }
+        if (game.save.unlocked(Unlocks.RELAX_LEVEL) && !game.save.relaxed) {
+            ui.button("Relax mode: no move limit", 0f, -3.0f, 6.2f, 1.0f, Neon.SUCCESS) { game.save.relaxed = true; restart() }
+        } else ui.button("Level Select", 0f, -3.0f, 5.0f, 1.0f, colorL) { exitToList() }
         ui.button("Home", 0f, -4.25f, 5.0f, 1.0f, colorL) { game.show(AppScreen.MAIN_MENU) }
     }
 

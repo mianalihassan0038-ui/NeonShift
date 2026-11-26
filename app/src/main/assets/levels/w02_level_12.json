@@ -6,17 +6,89 @@
   "maxMoves": 18,
   "hint": "",
   "light": {
-    "start": {"x": 0, "y": 2},
-    "exit": {"x": 1, "y": 0},
-    "walls": [{"x": 2, "y": 0}, {"x": 3, "y": 0}, {"x": 4, "y": 0}, {"x": 3, "y": 1}, {"x": 0, "y": 4}, {"x": 2, "y": 4}],
-    "cores": [{"x": 4, "y": 3}, {"x": 0, "y": 3}]
+    "start": {
+      "x": 0,
+      "y": 2
+    },
+    "exit": {
+      "x": 1,
+      "y": 0
+    },
+    "walls": [
+      {
+        "x": 2,
+        "y": 0
+      },
+      {
+        "x": 3,
+        "y": 0
+      },
+      {
+        "x": 4,
+        "y": 0
+      },
+      {
+        "x": 3,
+        "y": 1
+      },
+      {
+        "x": 0,
+        "y": 4
+      },
+      {
+        "x": 2,
+        "y": 4
+      }
+    ],
+    "cores": [
+      {
+        "x": 4,
+        "y": 3
+      },
+      {
+        "x": 0,
+        "y": 3
+      }
+    ]
   },
   "shadow": {
-    "start": {"x": 4, "y": 2},
-    "exit": {"x": 3, "y": 4},
-    "walls": [{"x": 0, "y": 0}, {"x": 2, "y": 3}, {"x": 4, "y": 4}],
-    "cores": [{"x": 1, "y": 0}, {"x": 4, "y": 3}]
+    "start": {
+      "x": 4,
+      "y": 2
+    },
+    "exit": {
+      "x": 3,
+      "y": 4
+    },
+    "walls": [
+      {
+        "x": 0,
+        "y": 0
+      },
+      {
+        "x": 2,
+        "y": 3
+      },
+      {
+        "x": 4,
+        "y": 4
+      }
+    ],
+    "cores": [
+      {
+        "x": 1,
+        "y": 0
+      },
+      {
+        "x": 4,
+        "y": 3
+      }
+    ]
   },
-  "starThresholds": {"threeStarsMaxMoves": 15, "twoStarsMaxMoves": 17, "oneStarMaxMoves": 18},
+  "starThresholds": {
+    "threeStarsMaxMoves": 15,
+    "twoStarsMaxMoves": 17,
+    "oneStarMaxMoves": 18
+  },
   "_solution": "UDDRRRDURULLLUU"
 }

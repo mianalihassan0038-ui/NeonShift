@@ -26,6 +26,9 @@ val SKINS = listOf(
     Skin("Mono", 0xFFFFFFFF.toInt(), 0xFF8A93B8.toInt(), 2000)
 )
 
+/** Move trails; they unlock with player level (see Unlocks). */
+val TRAILS = listOf("Glow", "Sparks", "Rainbow", "Stars")
+
 /** Centre of a cell relative to the board centre (world units, y up). Row 0 is the top row. */
 fun cellOffset(board: BoardState, p: GridPos, scale: Float = 1f): Pair<Float, Float> {
     val ox = (board.width - 1) * 0.5f

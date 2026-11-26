@@ -4,20 +4,93 @@
   "gridWidth": 5,
   "gridHeight": 5,
   "maxMoves": 15,
-  "hint": "Cross a crumbling tile only once.",
+  "hint": "",
   "light": {
-    "start": {"x": 2, "y": 3},
-    "exit": {"x": 3, "y": 1},
-    "walls": [{"x": 4, "y": 1}, {"x": 1, "y": 2}, {"x": 4, "y": 2}],
-    "cores": [{"x": 0, "y": 3}],
-    "crumble": [{"x": 4, "y": 4}, {"x": 3, "y": 4}, {"x": 1, "y": 4}]
+    "start": {
+      "x": 2,
+      "y": 3
+    },
+    "exit": {
+      "x": 3,
+      "y": 1
+    },
+    "walls": [
+      {
+        "x": 4,
+        "y": 1
+      },
+      {
+        "x": 1,
+        "y": 2
+      },
+      {
+        "x": 4,
+        "y": 2
+      }
+    ],
+    "cores": [
+      {
+        "x": 0,
+        "y": 3
+      }
+    ],
+    "crumble": [
+      {
+        "x": 4,
+        "y": 4
+      },
+      {
+        "x": 3,
+        "y": 4
+      },
+      {
+        "x": 1,
+        "y": 4
+      }
+    ]
   },
   "shadow": {
-    "start": {"x": 1, "y": 1},
-    "exit": {"x": 0, "y": 3},
-    "walls": [{"x": 1, "y": 3}, {"x": 2, "y": 3}, {"x": 1, "y": 4}],
-    "crumble": [{"x": 0, "y": 2}, {"x": 2, "y": 1}, {"x": 3, "y": 2}]
+    "start": {
+      "x": 1,
+      "y": 1
+    },
+    "exit": {
+      "x": 0,
+      "y": 3
+    },
+    "walls": [
+      {
+        "x": 1,
+        "y": 3
+      },
+      {
+        "x": 2,
+        "y": 3
+      },
+      {
+        "x": 1,
+        "y": 4
+      }
+    ],
+    "crumble": [
+      {
+        "x": 0,
+        "y": 2
+      },
+      {
+        "x": 2,
+        "y": 1
+      },
+      {
+        "x": 3,
+        "y": 2
+      }
+    ]
   },
-  "starThresholds": {"threeStarsMaxMoves": 9, "twoStarsMaxMoves": 11, "oneStarMaxMoves": 15},
+  "starThresholds": {
+    "threeStarsMaxMoves": 9,
+    "twoStarsMaxMoves": 11,
+    "oneStarMaxMoves": 15
+  },
   "_solution": "DLLURRURU"
 }

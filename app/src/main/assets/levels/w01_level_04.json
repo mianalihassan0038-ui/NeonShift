@@ -1,10 +1,11 @@
 {
   "levelId": 4,
   "worldId": 1,
-  "gridWidth": 5,
-  "gridHeight": 5,
-  "maxMoves": 12,
-  "hint": "Moves that go nowhere don't count.",
+  "gridWidth": 4,
+  "gridHeight": 3,
+  "maxMoves": 0,
+  "hint": "Shadow moves the OPPOSITE way!",
+  "tutorial": "shadow",
   "light": {
     "start": {
       "x": 0,
@@ -12,76 +13,24 @@
     },
     "exit": {
       "x": 3,
-      "y": 3
+      "y": 1
     },
-    "walls": [
-      {
-        "x": 0,
-        "y": 3
-      },
-      {
-        "x": 0,
-        "y": 4
-      },
-      {
-        "x": 1,
-        "y": 4
-      },
-      {
-        "x": 2,
-        "y": 3
-      },
-      {
-        "x": 3,
-        "y": 0
-      },
-      {
-        "x": 3,
-        "y": 2
-      }
-    ]
+    "walls": []
   },
   "shadow": {
     "start": {
-      "x": 4,
-      "y": 2
+      "x": 3,
+      "y": 1
     },
     "exit": {
-      "x": 1,
-      "y": 0
+      "x": 0,
+      "y": 1
     },
-    "walls": [
-      {
-        "x": 0,
-        "y": 3
-      },
-      {
-        "x": 2,
-        "y": 4
-      },
-      {
-        "x": 3,
-        "y": 1
-      },
-      {
-        "x": 3,
-        "y": 3
-      },
-      {
-        "x": 4,
-        "y": 0
-      },
-      {
-        "x": 4,
-        "y": 1
-      }
-    ]
+    "walls": []
   },
-  "energyNodes": [],
   "starThresholds": {
-    "threeStarsMaxMoves": 7,
-    "twoStarsMaxMoves": 9,
-    "oneStarMaxMoves": 12
-  },
-  "_solution": "RRRRDDL"
+    "threeStarsMaxMoves": 3,
+    "twoStarsMaxMoves": 5,
+    "oneStarMaxMoves": 8
+  }
 }

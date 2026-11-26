@@ -107,6 +107,7 @@ object LevelParser {
                 list(b, "switches"), list(b, "gates"), list(b, "crumble"))
         }
         val st = m["starThresholds"] as? Map<String, Any?>
+        val solo = m["solo"] == true
         return LevelData(
             levelId = int(m, "levelId", 1),
             worldId = int(m, "worldId", 1),
@@ -115,8 +116,9 @@ object LevelParser {
             maxMoves = int(m, "maxMoves", 0),
             hint = m["hint"] as? String ?: "",
             light = board(m["light"]),
-            shadow = board(m["shadow"]),
-            starThresholds = StarThresholds(int(st, "threeStarsMaxMoves", 0), int(st, "twoStarsMaxMoves", 0), int(st, "oneStarMaxMoves", 0))
+            shadow = if (solo) BoardData(GridPos(0, 0), GridPos(0, 0), frozen = true) else board(m["shadow"]),
+            starThresholds = StarThresholds(int(st, "threeStarsMaxMoves", 0), int(st, "twoStarsMaxMoves", 0), int(st, "oneStarMaxMoves", 0)),
+            tutorial = m["tutorial"] as? String ?: ""
         )
     }
 
@@ -271,6 +273,32 @@ class SaveData(private val kv: KeyValueStore) {
         if (day == 7) addHints(2)
         return reward
     }
+
+    // Player XP, reward chest and win streak.
+    val xp get() = kv.getInt("xp", 0)
+    /** Adds XP and returns how many player levels were gained (each pays LEVEL_UP_COINS). */
+    val playerLevel get() = Rewards.levelInfo(xp).first
+    fun addXp(amount: Int): Int {
+        val before = playerLevel
+        kv.putInt("xp", xp + amount)
+        val after = playerLevel
+        for (lv in before + 1..after) {
+            addCoins(Rewards.LEVEL_UP_COINS)
+            addHints(1)
+            for (u in Unlocks.at(lv)) when (u.kind) {
+                Unlocks.Kind.SKIN -> kv.putInt("skins", kv.getInt("skins", 1) or (1 shl u.id))
+                Unlocks.Kind.CHEST -> chestProgress = Rewards.CHEST_EVERY
+                else -> {}
+            }
+        }
+        return after - before
+    }
+    fun unlocked(level: Int) = playerLevel >= level
+    var trail: Int get() = kv.getInt("trail", 0); set(v) = kv.putInt("trail", v)
+    fun ownsTrail(i: Int) = playerLevel >= Unlocks.trailLevel(i)
+    var chestProgress: Int get() = kv.getInt("chest", 0); set(v) = kv.putInt("chest", v)
+    var winStreak: Int get() = kv.getInt("winStreak", 0); set(v) = kv.putInt("winStreak", v)
+    var relaxed: Boolean get() = flag("set.relaxed", false); set(v) = kv.putInt("set.relaxed", if (v) 1 else 0)
 
     var timeAttackBest: Int get() = kv.getInt("ta.best", 0); set(v) = kv.putInt("ta.best", v)
     fun introSeen(world: Int) = kv.getInt("intro.$world", 0) == 1
