@@ -1,0 +1,22 @@
+{
+  "levelId": 1,
+  "worldId": 4,
+  "gridWidth": 5,
+  "gridHeight": 5,
+  "maxMoves": 13,
+  "hint": "NEW: Switches! Step on a switch to flip every gate on BOTH boards.",
+  "light": {
+    "start": {"x": 1, "y": 2},
+    "exit": {"x": 4, "y": 2},
+    "walls": [{"x": 2, "y": 0}, {"x": 2, "y": 3}, {"x": 2, "y": 4}]
+  },
+  "shadow": {
+    "start": {"x": 3, "y": 2},
+    "exit": {"x": 0, "y": 2},
+    "walls": [{"x": 0, "y": 1}, {"x": 2, "y": 2}, {"x": 4, "y": 2}, {"x": 0, "y": 3}, {"x": 0, "y": 4}],
+    "switches": [{"x": 3, "y": 1}],
+    "gates": [{"x": 2, "y": 3}, {"x": 1, "y": 3}]
+  },
+  "starThresholds": {"threeStarsMaxMoves": 7, "twoStarsMaxMoves": 9, "oneStarMaxMoves": 13},
+  "_solution": "DUURRDR"
+}

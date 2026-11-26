@@ -14,13 +14,12 @@ GitHub Actions builds, tests and publishes a new APK on every push to `main`. No
 
 ## What's in the game
 
-- **Core loop:** two 5×5 boards, swipe input (one gesture = one move, multitouch cancels, input locked while animating), paired movement checked before anything moves, wall and edge collision with a red "bump", move counter, win detection.
-- **Puzzle tools:** undo, restart, per-level move limit with a Level Failed panel, 1–3 stars saved per level.
-- **Screens:** splash with loading bar, main menu, world select, world map with level nodes and stars, pause panel, Level Complete / Level Failed panels, 20 levels in two worlds of 10 (every one proven solvable), first-time swipe tutorial.
+- **Core loop:** two boards that scale to fill the phone screen, swipe input (one swipe is queued while tokens move), paired movement checked before anything moves, wall and edge collision with a red "bump", move counter, win detection.
+- **Five worlds, 58 levels, a new mechanic per world:** World 1 basics, World 2 Energy Cores (collect them all before the exit opens), World 3 Portals, World 4 Switches & Gates (one switch flips the gates on both boards), World 5 Crumble tiles plus every mechanic mixed. Each new mechanic gets an intro card. Every level is proven solvable by the solver and its 3-star score is the best possible.
+- **Game feel:** particles, glowing trails, squash-and-stretch orbs with eyes, screen shake on a bump, combo sound pitch, core / portal / switch / crumble effects, confetti and stars popping in on a win, coins counting up, animated neon background.
+- **Modes:** levels, Daily Challenge (mechanics rotate by day, same puzzle for everyone), Time Attack (90 s, every solve adds time, endless generated puzzles that get harder, best score saved).
+- **Rewards:** coins, 7-day login reward calendar, Orb Shop with 8 colour skins, 11 achievements, hints (3 free, then 100 coins), profile with player level.
 - **Polish:** synthesized music and sound effects with on/off and volume, haptics, settings screen, screen fades, Inter font.
-- **Extras from the UI designs:** Daily Challenge (a new solver-checked puzzle each day, same for everyone, with streaks and a coin reward), Hint button (3 free hints, then 100 coins each), coins, achievements and a profile with player level.
-
-Not included, on purpose: the Shop, real-money purchases and ads, and Worlds 3–5 (shown as "Coming soon").
 
 ## Build it yourself
 

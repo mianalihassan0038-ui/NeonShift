@@ -1,0 +1,22 @@
+{
+  "levelId": 2,
+  "worldId": 4,
+  "gridWidth": 5,
+  "gridHeight": 5,
+  "maxMoves": 14,
+  "hint": "Gates start closed. Flip them at the right moment.",
+  "light": {
+    "start": {"x": 2, "y": 4},
+    "exit": {"x": 1, "y": 1},
+    "walls": [{"x": 1, "y": 0}, {"x": 1, "y": 2}, {"x": 4, "y": 2}, {"x": 0, "y": 3}, {"x": 1, "y": 3}]
+  },
+  "shadow": {
+    "start": {"x": 2, "y": 0},
+    "exit": {"x": 3, "y": 3},
+    "walls": [{"x": 0, "y": 1}, {"x": 1, "y": 1}, {"x": 3, "y": 1}, {"x": 4, "y": 1}, {"x": 0, "y": 2}, {"x": 3, "y": 2}, {"x": 0, "y": 3}, {"x": 4, "y": 3}, {"x": 0, "y": 4}, {"x": 1, "y": 4}, {"x": 4, "y": 4}],
+    "switches": [{"x": 0, "y": 0}],
+    "gates": [{"x": 2, "y": 1}]
+  },
+  "starThresholds": {"threeStarsMaxMoves": 8, "twoStarsMaxMoves": 10, "oneStarMaxMoves": 14},
+  "_solution": "RRLLUUUL"
+}

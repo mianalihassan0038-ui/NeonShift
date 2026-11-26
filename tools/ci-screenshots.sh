@@ -11,8 +11,10 @@ read -r W H < <(adb shell wm size | tail -1 | sed 's/.*: //; s/x/ /')
 NAV=$(( H / 20 ))              # rough navigation bar height
 VH=$(( H - NAV ))
 PPU=$(python3 -c "print(min($W/9.5, $VH/17.2))")
-px() { python3 -c "print(int($W/2 + ($1)*$PPU))"; }
-py() { python3 -c "print(int($VH/2 - ($1)*$PPU))"; }
+# HW / HH: half the visible width / height in layout units (top bars sit at HH - 0.85).
+CTX="HW=$W/$PPU/2; HH=$VH/$PPU/2"
+px() { python3 -c "$CTX; print(int($W/2 + ($1)*$PPU))"; }
+py() { python3 -c "$CTX; print(int($VH/2 - ($1)*$PPU))"; }
 tap() { adb shell input tap "$(px "$1")" "$(py "$2")"; sleep "${3:-1.2}"; }
 swipe() {
   local cx=$(( W / 2 )) cy=$(( VH / 2 )) d=$(( W / 4 ))
@@ -30,21 +32,31 @@ shot() {
 }
 
 adb shell am start -W -n com.neonshift.game/.MainActivity
+BACK="-HW+0.75 HH-0.85"
 sleep 0.8; shot 01-splash
-sleep 3;   shot 02-menu
-tap 0 0.7 1.5;  shot 03-level1
-swipe R; swipe R; shot 04-level1-moves
-tap 3.75 7.45;  shot 05-pause
-tap 0 2.9;      # continue
-swipe R; swipe R; sleep 1.5; shot 06-victory
-tap 0 -1.9 1.5; shot 07-level2
-swipe L; sleep 0.5; shot 08-blocked
-tap -3.75 7.45; shot 09-world-map
-tap -3.75 7.35; shot 10-worlds
-tap -3.75 7.35; tap 0 -1.85; shot 11-daily
-tap -3.75 7.35; tap 0 -4.45; shot 12-achievements
-tap -3.75 7.35; tap 0 -5.75; shot 13-settings
-tap -3.75 7.35; tap -3.7 7.3; shot 14-profile
+sleep 3;   shot 02-login-reward
+tap 0 -3.35 1.5; shot 03-login-claimed
+tap 0 -3.9;      shot 04-menu
+tap 0 2.3 1.5;   shot 05-level1
+swipe R; swipe R; shot 06-level1-moves
+tap HW-0.72 HH-0.8; shot 07-pause
+tap 0 2.9
+swipe R; swipe R; sleep 1.0; shot 08-victory-stars
+sleep 1.5; shot 09-victory
+tap 0 -1.9 1.5; shot 10-level2
+swipe L; sleep 0.2; shot 11-blocked
+tap $BACK; shot 12-world-map
+tap $BACK; shot 13-worlds
+tap $BACK; tap -1.95 -0.4; shot 14-daily
+tap $BACK; tap 1.95 -0.4; shot 15-time-attack
+tap 0 -3.4 0.6; shot 16-ta-ready
+sleep 3; shot 17-ta-puzzle
+swipe R; swipe U; swipe L; sleep 0.3; shot 18-ta-moves
+tap $BACK; tap $BACK; tap 1.95 -2.3; shot 19-shop
+tap 2.05 2.55; shot 20-shop-locked
+tap $BACK; tap 0 -4.1; shot 21-achievements
+tap $BACK; tap HW-0.75 HH-0.85; shot 22-settings
+tap $BACK; tap $BACK; shot 23-profile
 
 timeout 60 adb logcat -d > shots/logcat.txt
 if grep -q "FATAL EXCEPTION" shots/logcat.txt; then

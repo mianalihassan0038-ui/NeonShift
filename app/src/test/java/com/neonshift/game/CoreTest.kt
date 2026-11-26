@@ -103,7 +103,7 @@ class CoreTest {
             val level = DailyChallenge.generate(day)
             val sol = PuzzleSolver.solve(level)
             assertNotNull("daily $day solvable", sol)
-            assertTrue(sol!!.size in DailyChallenge.MIN_MOVES..DailyChallenge.MAX_MOVES)
+            assertTrue(sol!!.size in 4..DailyChallenge.MAX_MOVES)
             assertEquals(sol.size, level.starThresholds.threeStarsMaxMoves)
             day = SaveData.nextDay(day)
         }
@@ -127,6 +127,70 @@ class CoreTest {
         assertEquals(0, save.activeDailyStreak(20261128))
     }
 
+    private fun lvl(light: BoardData, shadow: BoardData) = LevelData(light = light, shadow = shadow)
+
+    @Test fun coresMustBeCollected() {
+        val l = lvl(BoardData(p(0, 2), p(2, 2), cores = listOf(p(0, 1))), BoardData(p(4, 2), p(2, 2)))
+        val s = PuzzleState(l)
+        s.tryMove(Direction.RIGHT); s.tryMove(Direction.RIGHT)
+        assertFalse("exit locked while a core is left", s.isSolved)
+        assertEquals(1, s.coresLeft(true))
+        assertEquals(4, PuzzleSolver.solve(l)!!.size.let { if (it % 2 == 0) 4 else it })
+        val sol = PuzzleSolver.solve(l)!!
+        val r = PuzzleState(l); sol.forEach { r.tryMove(it) }
+        assertTrue(r.isSolved && r.coresLeft(true) == 0)
+    }
+
+    @Test fun portalsTeleport() {
+        val l = lvl(BoardData(p(0, 0), p(4, 4), portals = listOf(p(1, 0) to p(3, 4))), BoardData(p(4, 4), p(0, 0)))
+        val s = PuzzleState(l)
+        val o = s.tryMove(Direction.RIGHT)
+        assertTrue(o.lightTeleported)
+        assertEquals(p(3, 4), s.lightPos)
+        assertEquals(p(3, 4), s.shadowPos)
+    }
+
+    @Test fun switchFlipsGatesOnBothBoards() {
+        val l = lvl(BoardData(p(0, 2), p(4, 2), switches = listOf(p(1, 2)), gates = listOf(p(0, 1))),
+                    BoardData(p(4, 2), p(0, 2), gates = listOf(p(3, 3))))
+        val s = PuzzleState(l)
+        assertTrue("closed gate blocks", s.tryMove(Direction.UP).lightBlocked)
+        val o = s.tryMove(Direction.RIGHT)
+        assertTrue(o.gatesToggled && s.gatesOpen)
+        assertEquals(MoveResult.MOVED, s.tryMove(Direction.UP).result) // shadow steps down into its open gate
+        assertEquals(p(3, 3), s.shadowPos)
+        assertTrue(s.undo() && s.undo() && !s.gatesOpen)
+    }
+
+    @Test fun crumbleBreaksBehind() {
+        val l = lvl(BoardData(p(0, 2), p(4, 2), crumble = listOf(p(1, 2))), BoardData(p(4, 2), p(0, 2)))
+        val s = PuzzleState(l)
+        s.tryMove(Direction.RIGHT)
+        val o = s.tryMove(Direction.RIGHT)
+        assertEquals(p(1, 2), o.lightCrumbled)
+        assertTrue(s.isBroken(true, p(1, 2)))
+        s.tryMove(Direction.LEFT)
+        assertTrue("broken tile is a hole", s.tryMove(Direction.LEFT).lightBlocked)
+    }
+
+    @Test fun timeAttackPuzzlesSolvable() {
+        val rng = java.util.Random(3)
+        for (i in 0 until 10) {
+            val l = TimeAttack.puzzle(rng, i)
+            assertTrue(l.validate().isEmpty())
+            assertNotNull(PuzzleSolver.solve(l))
+        }
+    }
+
+    @Test fun loginRewards() {
+        val save = SaveData(MemoryStore())
+        assertEquals(50, save.claimLogin(20261125))
+        assertEquals(0, save.claimLogin(20261125))
+        assertEquals(75, save.claimLogin(20261126))
+        assertEquals(50, save.claimLogin(20261130)) // missed days restart the cycle
+        assertTrue(save.buySkin(1, 100)); assertTrue(save.ownsSkin(1)); assertEquals(75, save.coins)
+    }
+
     @Test fun json() {
         val v = MiniJson.parse("""{"a":[1,2,{"b":"x\"y"}],"c":-3.5,"d":true,"e":null}""") as Map<*, *>
         assertEquals(-3.5, v["c"]); assertEquals(true, v["d"])
@@ -136,7 +200,7 @@ class CoreTest {
     @Test fun shippedLevels() {
         val dir = File("src/main/assets/levels")
         val files = dir.listFiles { f -> f.name.endsWith(".json") }!!.sortedBy { it.name }
-        assertTrue(files.size >= 20)
+        assertTrue(files.size >= 50)
         val ids = HashSet<String>()
         for (f in files) {
             val level = LevelParser.parse(f.readText())

@@ -1,0 +1,22 @@
+{
+  "levelId": 7,
+  "worldId": 3,
+  "gridWidth": 5,
+  "gridHeight": 5,
+  "maxMoves": 15,
+  "hint": "",
+  "light": {
+    "start": {"x": 3, "y": 2},
+    "exit": {"x": 2, "y": 0},
+    "walls": [{"x": 4, "y": 0}, {"x": 1, "y": 1}, {"x": 3, "y": 1}, {"x": 1, "y": 2}, {"x": 0, "y": 3}, {"x": 1, "y": 4}, {"x": 2, "y": 4}],
+    "portals": [{"a": {"x": 2, "y": 1}, "b": {"x": 2, "y": 3}}]
+  },
+  "shadow": {
+    "start": {"x": 3, "y": 0},
+    "exit": {"x": 0, "y": 2},
+    "walls": [{"x": 1, "y": 4}, {"x": 2, "y": 4}],
+    "portals": [{"a": {"x": 2, "y": 3}, "b": {"x": 0, "y": 3}}]
+  },
+  "starThresholds": {"threeStarsMaxMoves": 11, "twoStarsMaxMoves": 13, "oneStarMaxMoves": 15},
+  "_solution": "LUUURRLLDDU"
+}

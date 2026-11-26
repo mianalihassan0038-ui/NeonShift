@@ -1,0 +1,24 @@
+{
+  "levelId": 10,
+  "worldId": 3,
+  "gridWidth": 5,
+  "gridHeight": 5,
+  "maxMoves": 16,
+  "hint": "",
+  "light": {
+    "start": {"x": 0, "y": 0},
+    "exit": {"x": 1, "y": 2},
+    "walls": [{"x": 4, "y": 0}, {"x": 0, "y": 1}, {"x": 2, "y": 1}, {"x": 3, "y": 2}, {"x": 1, "y": 4}, {"x": 3, "y": 4}],
+    "cores": [{"x": 4, "y": 2}],
+    "portals": [{"a": {"x": 4, "y": 3}, "b": {"x": 4, "y": 1}}]
+  },
+  "shadow": {
+    "start": {"x": 4, "y": 1},
+    "exit": {"x": 3, "y": 1},
+    "walls": [{"x": 1, "y": 1}, {"x": 0, "y": 2}, {"x": 2, "y": 2}, {"x": 4, "y": 2}, {"x": 3, "y": 3}, {"x": 4, "y": 3}, {"x": 3, "y": 4}],
+    "cores": [{"x": 0, "y": 4}],
+    "portals": [{"a": {"x": 2, "y": 4}, "b": {"x": 2, "y": 1}}]
+  },
+  "starThresholds": {"threeStarsMaxMoves": 13, "twoStarsMaxMoves": 15, "oneStarMaxMoves": 16},
+  "_solution": "RRRDRUDLRLLUL"
+}

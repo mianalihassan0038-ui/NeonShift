@@ -1,0 +1,23 @@
+{
+  "levelId": 10,
+  "worldId": 5,
+  "gridWidth": 5,
+  "gridHeight": 5,
+  "maxMoves": 18,
+  "hint": "",
+  "light": {
+    "start": {"x": 1, "y": 2},
+    "exit": {"x": 2, "y": 4},
+    "walls": [{"x": 1, "y": 3}, {"x": 2, "y": 3}],
+    "cores": [{"x": 4, "y": 1}, {"x": 4, "y": 3}],
+    "crumble": [{"x": 3, "y": 2}]
+  },
+  "shadow": {
+    "start": {"x": 3, "y": 3},
+    "exit": {"x": 2, "y": 1},
+    "walls": [{"x": 3, "y": 0}, {"x": 0, "y": 1}, {"x": 1, "y": 1}, {"x": 2, "y": 2}, {"x": 3, "y": 2}, {"x": 3, "y": 4}],
+    "crumble": [{"x": 2, "y": 0}, {"x": 2, "y": 4}]
+  },
+  "starThresholds": {"threeStarsMaxMoves": 15, "twoStarsMaxMoves": 17, "oneStarMaxMoves": 18},
+  "_solution": "RURRDDULLLLDDRR"
+}

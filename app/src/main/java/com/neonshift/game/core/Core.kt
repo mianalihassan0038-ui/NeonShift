@@ -19,11 +19,26 @@ enum class Direction(val dx: Int, val dy: Int) {
     }
 }
 
+/**
+ * One board of a level.
+ * - cores: energy cores; the board's exit only counts once all of them are collected.
+ * - portals: pairs of cells; stepping onto one moves the token to the other.
+ * - switches / gates: stepping onto any switch (on either board) flips ALL gates on BOTH boards. Gates start closed.
+ * - crumble: floor that breaks into a hole after the token leaves it.
+ */
 class BoardData(
     var start: GridPos = GridPos(0, 0),
     var exit: GridPos = GridPos(0, 0),
-    var walls: List<GridPos> = emptyList()
-)
+    var walls: List<GridPos> = emptyList(),
+    var cores: List<GridPos> = emptyList(),
+    var portals: List<Pair<GridPos, GridPos>> = emptyList(),
+    var switches: List<GridPos> = emptyList(),
+    var gates: List<GridPos> = emptyList(),
+    var crumble: List<GridPos> = emptyList()
+) {
+    fun specialCells(): List<GridPos> = walls + cores + portals.flatMap { listOf(it.first, it.second) } + switches + gates + crumble
+    fun copy() = BoardData(start, exit, walls.toList(), cores.toList(), portals.toList(), switches.toList(), gates.toList(), crumble.toList())
+}
 
 class StarThresholds(var threeStarsMaxMoves: Int = 0, var twoStarsMaxMoves: Int = 0, var oneStarMaxMoves: Int = 0)
 
@@ -38,10 +53,16 @@ class LevelData(
     var shadow: BoardData = BoardData(),
     var starThresholds: StarThresholds = StarThresholds()
 ) {
+    val hasCores get() = light.cores.isNotEmpty() || shadow.cores.isNotEmpty()
+    val hasPortals get() = light.portals.isNotEmpty() || shadow.portals.isNotEmpty()
+    val hasGates get() = light.gates.isNotEmpty() || shadow.gates.isNotEmpty() || light.switches.isNotEmpty() || shadow.switches.isNotEmpty()
+    val hasCrumble get() = light.crumble.isNotEmpty() || shadow.crumble.isNotEmpty()
+
     /** Problems with the level. Empty means it is structurally valid. */
     fun validate(): List<String> {
         val errors = mutableListOf<String>()
         if (gridWidth < 2 || gridHeight < 2) errors += "grid must be at least 2x2"
+        if (gridWidth * gridHeight > 64) errors += "grid too large"
         check("light", light, errors)
         check("shadow", shadow, errors)
         return errors
@@ -51,33 +72,61 @@ class LevelData(
         if (!inBounds(b.start)) errors += "$name: start ${b.start} is outside the grid"
         if (!inBounds(b.exit)) errors += "$name: exit ${b.exit} is outside the grid"
         if (b.start == b.exit) errors += "$name: start and exit are the same cell"
-        for (w in b.walls) {
-            if (!inBounds(w)) errors += "$name: wall $w is outside the grid"
-            if (w == b.start) errors += "$name: wall on start $w"
-            if (w == b.exit) errors += "$name: wall on exit $w"
+        val special = b.specialCells()
+        for (c in special) {
+            if (!inBounds(c)) errors += "$name: cell $c is outside the grid"
+            if (c == b.start) errors += "$name: special tile on start $c"
+            if (c == b.exit) errors += "$name: special tile on exit $c"
         }
+        if (special.size != special.toSet().size) errors += "$name: two special tiles share a cell"
     }
 
     private fun inBounds(p: GridPos) = p.x in 0 until gridWidth && p.y in 0 until gridHeight
 }
 
-enum class TileType { EMPTY, WALL, EXIT }
+enum class TileType { EMPTY, WALL, EXIT, CORE, PORTAL, SWITCH, GATE, CRUMBLE }
 
 /** Static layout of one board (Light or Shadow). */
-class BoardState(val width: Int, val height: Int, data: BoardData) {
+class BoardState(val width: Int, val height: Int, val data: BoardData) {
     val start = data.start
     val exit = data.exit
     private val walls = data.walls.toHashSet()
+    private val gates = data.gates.toHashSet()
+    private val switches = data.switches.toHashSet()
+    private val crumble = data.crumble.toHashSet()
+    private val portalMap = HashMap<GridPos, GridPos>().apply { for ((a, b) in data.portals) { put(a, b); put(b, a) } }
+    /** Bit for each core, by its index in data.cores. */
+    val allCores: Long = if (data.cores.isEmpty()) 0L else (1L shl data.cores.size) - 1
 
     fun inBounds(p: GridPos) = p.x in 0 until width && p.y in 0 until height
+    fun bit(p: GridPos) = 1L shl (p.y * width + p.x)
     fun isWall(p: GridPos) = p in walls
-    fun canEnter(p: GridPos) = inBounds(p) && !isWall(p)
+    fun isGate(p: GridPos) = p in gates
+    fun isSwitch(p: GridPos) = p in switches
+    fun isCrumble(p: GridPos) = p in crumble
+    fun portalTarget(p: GridPos) = portalMap[p]
+    fun coreIndex(p: GridPos) = data.cores.indexOf(p)
+
+    fun canEnter(p: GridPos, broken: Long, gatesOpen: Boolean) =
+        inBounds(p) && !isWall(p) && (broken and bit(p)) == 0L && !(isGate(p) && !gatesOpen)
+
     fun tile(p: GridPos) = when {
         isWall(p) -> TileType.WALL
         p == exit -> TileType.EXIT
+        isGate(p) -> TileType.GATE
+        isSwitch(p) -> TileType.SWITCH
+        isCrumble(p) -> TileType.CRUMBLE
+        portalMap.containsKey(p) -> TileType.PORTAL
+        coreIndex(p) >= 0 -> TileType.CORE
         else -> TileType.EMPTY
     }
 }
+
+/** Everything that changes during play. Immutable, so it doubles as the undo snapshot and the solver state. */
+data class PlayState(
+    val light: GridPos, val shadow: GridPos, val gatesOpen: Boolean,
+    val coresL: Long, val coresS: Long, val brokenL: Long, val brokenS: Long
+)
 
 enum class MoveResult { MOVED, BLOCKED, ALREADY_SOLVED, OUT_OF_MOVES }
 
@@ -87,9 +136,47 @@ class MoveOutcome(
     val shadowBlocked: Boolean = false,
     val lightTo: GridPos? = null,
     val shadowTo: GridPos? = null,
+    val lightStep: GridPos? = null,   // the cell stepped onto (differs from lightTo after a portal)
+    val shadowStep: GridPos? = null,
+    val lightCore: GridPos? = null,   // core collected this move
+    val shadowCore: GridPos? = null,
+    val lightCrumbled: GridPos? = null, // cell that broke behind the token
+    val shadowCrumbled: GridPos? = null,
+    val gatesToggled: Boolean = false,
     val solvedNow: Boolean = false,
     val failedNow: Boolean = false
-)
+) {
+    val lightTeleported get() = lightStep != null && lightStep != lightTo
+    val shadowTeleported get() = shadowStep != null && shadowStep != shadowTo
+}
+
+object Rules {
+    fun initial(level: LevelData, lb: BoardState, sb: BoardState) =
+        PlayState(level.light.start, level.shadow.start, false, lb.allCores, sb.allCores, 0L, 0L)
+
+    fun solved(st: PlayState, lb: BoardState, sb: BoardState) =
+        st.light == lb.exit && st.shadow == sb.exit && st.coresL == 0L && st.coresS == 0L
+
+    /** Applies one swipe. Returns null if either token is blocked (then nothing moves). */
+    fun step(st: PlayState, d: Direction, lb: BoardState, sb: BoardState): PlayState? {
+        val l1 = st.light.step(d)
+        val s1 = st.shadow.step(d.opposite())
+        if (!lb.canEnter(l1, st.brokenL, st.gatesOpen) || !sb.canEnter(s1, st.brokenS, st.gatesOpen)) return null
+        val brokenL = if (lb.isCrumble(st.light)) st.brokenL or lb.bit(st.light) else st.brokenL
+        val brokenS = if (sb.isCrumble(st.shadow)) st.brokenS or sb.bit(st.shadow) else st.brokenS
+        val l2 = lb.portalTarget(l1) ?: l1
+        val s2 = sb.portalTarget(s1) ?: s1
+        var coresL = st.coresL
+        var coresS = st.coresS
+        lb.coreIndex(l2).let { if (it >= 0) coresL = coresL and (1L shl it).inv() }
+        sb.coreIndex(s2).let { if (it >= 0) coresS = coresS and (1L shl it).inv() }
+        var flips = 0
+        if (lb.isSwitch(l2)) flips++
+        if (sb.isSwitch(s2)) flips++
+        val gates = if (flips % 2 == 1) !st.gatesOpen else st.gatesOpen
+        return PlayState(l2, s2, gates, coresL, coresS, brokenL, brokenS)
+    }
+}
 
 /**
  * The live puzzle. Light moves with the swipe and Shadow moves the opposite way.
@@ -98,22 +185,34 @@ class MoveOutcome(
 class PuzzleState(val level: LevelData) {
     val lightBoard = BoardState(level.gridWidth, level.gridHeight, level.light)
     val shadowBoard = BoardState(level.gridWidth, level.gridHeight, level.shadow)
-    private val history = ArrayDeque<Triple<GridPos, GridPos, Int>>()
+    private val history = ArrayDeque<Pair<PlayState, Int>>()
 
-    var lightPos = lightBoard.start; private set
-    var shadowPos = shadowBoard.start; private set
+    var state = Rules.initial(level, lightBoard, shadowBoard); private set
     var moveCount = 0; private set
 
+    val lightPos get() = state.light
+    val shadowPos get() = state.shadow
+    val gatesOpen get() = state.gatesOpen
     val maxMoves get() = level.maxMoves
     val hasMoveLimit get() = level.maxMoves > 0
     val movesLeft get() = if (hasMoveLimit) maxOf(0, level.maxMoves - moveCount) else Int.MAX_VALUE
-    val isSolved get() = lightPos == lightBoard.exit && shadowPos == shadowBoard.exit
+    val isSolved get() = Rules.solved(state, lightBoard, shadowBoard)
     val isFailed get() = !isSolved && hasMoveLimit && moveCount >= level.maxMoves
     val canUndo get() = history.isNotEmpty()
 
+    fun coresLeft(light: Boolean) = java.lang.Long.bitCount(if (light) state.coresL else state.coresS)
+    fun hasCore(light: Boolean, p: GridPos): Boolean {
+        val b = if (light) lightBoard else shadowBoard
+        val i = b.coreIndex(p)
+        return i >= 0 && ((if (light) state.coresL else state.coresS) and (1L shl i)) != 0L
+    }
+    fun isBroken(light: Boolean, p: GridPos): Boolean {
+        val b = if (light) lightBoard else shadowBoard
+        return b.inBounds(p) && ((if (light) state.brokenL else state.brokenS) and b.bit(p)) != 0L
+    }
+
     fun reset() {
-        lightPos = lightBoard.start
-        shadowPos = shadowBoard.start
+        state = Rules.initial(level, lightBoard, shadowBoard)
         moveCount = 0
         history.clear()
     }
@@ -121,41 +220,65 @@ class PuzzleState(val level: LevelData) {
     /** Steps back one accepted move. Works after a win or a failure too. */
     fun undo(): Boolean {
         val s = history.removeLastOrNull() ?: return false
-        lightPos = s.first; shadowPos = s.second; moveCount = s.third
+        state = s.first
+        moveCount = s.second
         return true
     }
 
     fun tryMove(swipe: Direction): MoveOutcome {
         if (isSolved) return MoveOutcome(MoveResult.ALREADY_SOLVED)
         if (isFailed) return MoveOutcome(MoveResult.OUT_OF_MOVES)
-        val l = lightPos.step(swipe)
-        val s = shadowPos.step(swipe.opposite())
-        val lb = !lightBoard.canEnter(l)
-        val sb = !shadowBoard.canEnter(s)
-        if (lb || sb) return MoveOutcome(MoveResult.BLOCKED, lb, sb)
-        history.addLast(Triple(lightPos, shadowPos, moveCount))
-        lightPos = l; shadowPos = s; moveCount++
-        return MoveOutcome(MoveResult.MOVED, lightTo = l, shadowTo = s, solvedNow = isSolved, failedNow = isFailed)
+        val before = state
+        val next = Rules.step(before, swipe, lightBoard, shadowBoard)
+        if (next == null) {
+            val l = before.light.step(swipe)
+            val s = before.shadow.step(swipe.opposite())
+            return MoveOutcome(
+                MoveResult.BLOCKED,
+                !lightBoard.canEnter(l, before.brokenL, before.gatesOpen),
+                !shadowBoard.canEnter(s, before.brokenS, before.gatesOpen)
+            )
+        }
+        history.addLast(before to moveCount)
+        state = next
+        moveCount++
+        val lc = if (next.coresL != before.coresL) next.light else null
+        val sc = if (next.coresS != before.coresS) next.shadow else null
+        return MoveOutcome(
+            MoveResult.MOVED,
+            lightTo = next.light, shadowTo = next.shadow,
+            lightStep = before.light.step(swipe), shadowStep = before.shadow.step(swipe.opposite()),
+            lightCore = lc, shadowCore = sc,
+            lightCrumbled = if (next.brokenL != before.brokenL) before.light else null,
+            shadowCrumbled = if (next.brokenS != before.brokenS) before.shadow else null,
+            gatesToggled = next.gatesOpen != before.gatesOpen,
+            solvedNow = isSolved, failedNow = isFailed
+        )
     }
 }
 
-/** Breadth-first search over (Light, Shadow) positions: the shortest list of swipes, or null. */
+/** Breadth-first search over the whole play state: the shortest list of swipes, or null. */
 object PuzzleSolver {
-    fun solve(level: LevelData) = solve(level, level.light.start, level.shadow.start)
-
-    fun solve(level: LevelData, lightPos: GridPos, shadowPos: GridPos): List<Direction>? {
+    fun solve(level: LevelData, limit: Int = 400_000): List<Direction>? {
         val lb = BoardState(level.gridWidth, level.gridHeight, level.light)
         val sb = BoardState(level.gridWidth, level.gridHeight, level.shadow)
-        val start = lightPos to shadowPos
-        val cameFrom = HashMap<Pair<GridPos, GridPos>, Pair<Pair<GridPos, GridPos>, Direction>>()
+        return solveFrom(level, Rules.initial(level, lb, sb), limit)
+    }
+
+    fun solve(level: LevelData, state: PlayState) = solveFrom(level, state, 400_000)
+
+    fun solveFrom(level: LevelData, start: PlayState, limit: Int): List<Direction>? {
+        val lb = BoardState(level.gridWidth, level.gridHeight, level.light)
+        val sb = BoardState(level.gridWidth, level.gridHeight, level.shadow)
+        val cameFrom = HashMap<PlayState, Pair<PlayState, Direction>>()
         val visited = hashSetOf(start)
-        val queue = ArrayDeque<Pair<GridPos, GridPos>>()
+        val queue = ArrayDeque<PlayState>()
         queue.addLast(start)
         while (queue.isNotEmpty()) {
-            val state = queue.removeFirst()
-            if (state.first == lb.exit && state.second == sb.exit) {
+            val st = queue.removeFirst()
+            if (Rules.solved(st, lb, sb)) {
                 val path = mutableListOf<Direction>()
-                var cur = state
+                var cur = st
                 while (cur != start) {
                     val prev = cameFrom.getValue(cur)
                     path += prev.second
@@ -163,13 +286,11 @@ object PuzzleSolver {
                 }
                 return path.reversed()
             }
+            if (visited.size > limit) return null
             for (d in Direction.entries) {
-                val l = state.first.step(d)
-                val s = state.second.step(d.opposite())
-                if (!lb.canEnter(l) || !sb.canEnter(s)) continue
-                val next = l to s
+                val next = Rules.step(st, d, lb, sb) ?: continue
                 if (!visited.add(next)) continue
-                cameFrom[next] = state to d
+                cameFrom[next] = st to d
                 queue.addLast(next)
             }
         }
@@ -188,65 +309,6 @@ object StarManager {
     }
 }
 
-/** One puzzle per calendar day, built from the date, so every player gets the same one. */
-object DailyChallenge {
-    const val MIN_MOVES = 8
-    const val MAX_MOVES = 13
-
-    fun dayNumber(year: Int, month: Int, day: Int) = year * 10000 + month * 100 + day
-
-    fun generate(dayNumber: Int): LevelData {
-        val rng = java.util.Random(dayNumber * 7919L + 17)
-        repeat(20000) {
-            val level = randomLevel(rng) ?: return@repeat
-            val sol = PuzzleSolver.solve(level) ?: return@repeat
-            if (sol.size < MIN_MOVES || sol.size > MAX_MOVES) return@repeat
-            val direct = Math.abs(level.light.exit.x - level.light.start.x) + Math.abs(level.light.exit.y - level.light.start.y)
-            if (sol.size <= direct) return@repeat // must need a detour
-            val best = sol.size
-            level.maxMoves = best + 5
-            level.starThresholds = StarThresholds(best, best + 2, best + 5)
-            return level
-        }
-        return LevelData(
-            levelId = 1, worldId = 0,
-            light = BoardData(GridPos(0, 2), GridPos(4, 2)),
-            shadow = BoardData(GridPos(4, 2), GridPos(0, 2)),
-            starThresholds = StarThresholds(4, 6, 9)
-        )
-    }
-
-    private fun randomLevel(rng: java.util.Random): LevelData? {
-        val size = 5
-        val ls = GridPos(rng.nextInt(size), rng.nextInt(size))
-        val ss = GridPos(rng.nextInt(size), rng.nextInt(size))
-        val dx = rng.nextInt(9) - 4
-        val dy = rng.nextInt(9) - 4
-        if (dx == 0 && dy == 0) return null
-        val le = GridPos(ls.x + dx, ls.y + dy)
-        val se = GridPos(ss.x - dx, ss.y - dy)
-        if (!inside(le, size) || !inside(se, size)) return null
-        val density = 0.22 + rng.nextDouble() * 0.16
-        return LevelData(
-            levelId = 1, worldId = 0,
-            hint = "Daily puzzle. Same for every player today.",
-            light = BoardData(ls, le, walls(rng, size, density, ls, le)),
-            shadow = BoardData(ss, se, walls(rng, size, density, ss, se))
-        )
-    }
-
-    private fun walls(rng: java.util.Random, size: Int, density: Double, a: GridPos, b: GridPos): List<GridPos> {
-        val out = mutableListOf<GridPos>()
-        for (y in 0 until size) for (x in 0 until size) {
-            val p = GridPos(x, y)
-            if (p != a && p != b && rng.nextDouble() < density) out += p
-        }
-        return out
-    }
-
-    private fun inside(p: GridPos, size: Int) = p.x in 0 until size && p.y in 0 until size
-}
-
 object Rewards {
     const val FIRST_CLEAR_COINS = 50
     const val COINS_PER_NEW_STAR = 25
@@ -260,6 +322,9 @@ object Rewards {
         if (earnedStars > previousBestStars) coins += (earnedStars - previousBestStars) * COINS_PER_NEW_STAR
         return coins
     }
+
+    private val LOGIN = intArrayOf(50, 75, 100, 150, 200, 300, 500)
+    fun loginReward(day: Int) = LOGIN[(day - 1).coerceIn(0, 6)]
 
     fun xp(levelsCompleted: Int, totalStars: Int) = levelsCompleted * 60 + totalStars * 40
     fun playerLevel(xp: Int) = 1 + xp / XP_PER_LEVEL
@@ -280,7 +345,10 @@ class ProgressSnapshot(
     var perfectLevels: Int = 0,
     var noHintLevels: Int = 0,
     var bestDailyStreak: Int = 0,
-    var dailiesCompleted: Int = 0
+    var dailiesCompleted: Int = 0,
+    var timeAttackBest: Int = 0,
+    val worldCompleted: IntArray = IntArray(8),
+    val worldTotal: IntArray = IntArray(8)
 )
 
 class Achievement(val title: String, val description: String, val progress: Int, val goal: Int) {
@@ -294,7 +362,12 @@ object Achievements {
         make("Puzzle Master", "Complete all ${p.totalLevels} levels", p.levelsCompleted, p.totalLevels),
         make("Perfect Solver", "Get 3 stars on 10 levels", p.perfectLevels, 10),
         make("No Hint Challenge", "Finish 10 levels without hints", p.noHintLevels, 10),
-        make("Daily Player", "Reach a 7-day daily streak", p.bestDailyStreak, 7)
+        make("Daily Player", "Reach a 7-day daily streak", p.bestDailyStreak, 7),
+        make("Core Collector", "Complete World 02", p.worldCompleted.getOrElse(2) { 0 }, p.worldTotal.getOrElse(2) { 1 }),
+        make("Portal Jumper", "Complete World 03", p.worldCompleted.getOrElse(3) { 0 }, p.worldTotal.getOrElse(3) { 1 }),
+        make("Gatekeeper", "Complete World 04", p.worldCompleted.getOrElse(4) { 0 }, p.worldTotal.getOrElse(4) { 1 }),
+        make("Singularity", "Complete World 05", p.worldCompleted.getOrElse(5) { 0 }, p.worldTotal.getOrElse(5) { 1 }),
+        make("Speed Demon", "Solve 10 puzzles in one Time Attack run", p.timeAttackBest, 10)
     )
 
     private fun make(title: String, desc: String, progress: Int, goal: Int): Achievement {

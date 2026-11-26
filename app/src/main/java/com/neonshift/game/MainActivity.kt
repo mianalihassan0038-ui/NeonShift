@@ -120,6 +120,7 @@ class GameView(context: Context, val game: Game, private val ui: Ui) : View(cont
         val dt = if (last == 0L) 0.016f else min(0.1f, (now - last) / 1e9f)
         last = now
         clock += dt
+        ui.tick(dt)
         ui.begin(canvas, width, height, clock)
         game.frame(ui, dt)
         postInvalidateOnAnimation()

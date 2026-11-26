@@ -21,7 +21,7 @@ import kotlin.math.pow
 import kotlin.math.sign
 import kotlin.math.sin
 
-enum class Sfx { MOVE, BLOCKED, WIN, FAIL, CLICK, UNDO }
+enum class Sfx { MOVE, BLOCKED, WIN, FAIL, CLICK, UNDO, CORE, PORTAL, SWITCH, CRUMBLE, STAR, COIN }
 
 /**
  * Sound effects and a soft ambient music loop, all synthesised in code (no audio files in the app).
@@ -29,7 +29,7 @@ enum class Sfx { MOVE, BLOCKED, WIN, FAIL, CLICK, UNDO }
  */
 class Sound(private val context: Context, private val save: SaveData) {
     private val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
-    private val pool = SoundPool.Builder().setMaxStreams(6).setAudioAttributes(attrs).build()
+    private val pool = SoundPool.Builder().setMaxStreams(8).setAudioAttributes(attrs).build()
     private val ids = IntArray(Sfx.entries.size)
     private var music: MediaPlayer? = null
     @Volatile private var ready = false
@@ -38,7 +38,7 @@ class Sound(private val context: Context, private val save: SaveData) {
     init {
         thread(name = "neon-audio") {
             try {
-                val dir = File(context.cacheDir, "sfx-v1").apply { mkdirs() }
+                val dir = File(context.cacheDir, "sfx-v2").apply { mkdirs() }
                 fun file(name: String, make: () -> FloatArray): String {
                     val f = File(dir, "$name.wav")
                     if (!f.exists() || f.length() < 100) writeWav(f, make())
@@ -50,6 +50,12 @@ class Sound(private val context: Context, private val save: SaveData) {
                 ids[Sfx.UNDO.ordinal] = pool.load(file("undo") { tone(0.08f, 700f, 450f, 0.3f, false) }, 1)
                 ids[Sfx.WIN.ordinal] = pool.load(file("win") { arpeggio(floatArrayOf(523.25f, 659.25f, 783.99f, 1046.5f), 0.09f, 0.35f) }, 1)
                 ids[Sfx.FAIL.ordinal] = pool.load(file("fail") { arpeggio(floatArrayOf(392f, 311.13f, 246.94f), 0.12f, 0.3f) }, 1)
+                ids[Sfx.CORE.ordinal] = pool.load(file("core") { arpeggio(floatArrayOf(987.77f, 1318.5f), 0.05f, 0.3f) }, 1)
+                ids[Sfx.PORTAL.ordinal] = pool.load(file("portal") { tone(0.22f, 300f, 1400f, 0.3f, false) }, 1)
+                ids[Sfx.SWITCH.ordinal] = pool.load(file("switch") { tone(0.09f, 520f, 520f, 0.3f, true) }, 1)
+                ids[Sfx.CRUMBLE.ordinal] = pool.load(file("crumble") { noise(0.18f, 0.35f) }, 1)
+                ids[Sfx.STAR.ordinal] = pool.load(file("star") { arpeggio(floatArrayOf(1046.5f, 1567.98f), 0.06f, 0.35f) }, 1)
+                ids[Sfx.COIN.ordinal] = pool.load(file("coin") { arpeggio(floatArrayOf(1975.5f, 2637f), 0.035f, 0.18f) }, 1)
                 val musicPath = file("ambient") { ambient() }
                 val mp = MediaPlayer()
                 mp.setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
@@ -65,10 +71,11 @@ class Sound(private val context: Context, private val save: SaveData) {
         }
     }
 
-    fun play(s: Sfx) {
+    /** rate 0.5..2 changes the pitch (used for move combos). */
+    fun play(s: Sfx, rate: Float = 1f) {
         if (!ready || !save.sound) return
         val v = save.soundVolume
-        if (v > 0.01f) pool.play(ids[s.ordinal], v, v, 1, 0, 1f)
+        if (v > 0.01f) pool.play(ids[s.ordinal], v, v, 1, 0, rate.coerceIn(0.5f, 2f))
     }
 
     @Synchronized
@@ -105,6 +112,18 @@ class Sound(private val context: Context, private val save: SaveData) {
                 data[i] = s * env * volume
             }
             return data
+        }
+
+        /** Short crackle that fades out (crumbling tiles). */
+        fun noise(seconds: Float, volume: Float): FloatArray {
+            val n = (seconds * RATE).toInt() + 1
+            val r = java.util.Random(7)
+            var lp = 0f
+            return FloatArray(n) { i ->
+                val t = i.toFloat() / n
+                lp += (r.nextFloat() * 2f - 1f - lp) * 0.35f
+                lp * (1f - t).pow(3) * volume * 2f
+            }
         }
 
         fun arpeggio(notes: FloatArray, noteSeconds: Float, volume: Float): FloatArray {

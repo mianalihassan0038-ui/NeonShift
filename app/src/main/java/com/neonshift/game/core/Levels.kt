@@ -96,10 +96,15 @@ object LevelParser {
             val p = v as? Map<String, Any?> ?: return GridPos(0, 0)
             return GridPos(int(p, "x", 0), int(p, "y", 0))
         }
+        fun list(b: Map<String, Any?>, k: String) = (b[k] as? List<Any?>)?.map { pos(it) } ?: emptyList()
         fun board(v: Any?): BoardData {
             val b = v as? Map<String, Any?> ?: return BoardData()
-            val walls = (b["walls"] as? List<Any?>)?.map { pos(it) } ?: emptyList()
-            return BoardData(pos(b["start"]), pos(b["exit"]), walls)
+            val portals = (b["portals"] as? List<Any?>)?.mapNotNull {
+                val m = it as? Map<String, Any?> ?: return@mapNotNull null
+                pos(m["a"]) to pos(m["b"])
+            } ?: emptyList()
+            return BoardData(pos(b["start"]), pos(b["exit"]), list(b, "walls"), list(b, "cores"), portals,
+                list(b, "switches"), list(b, "gates"), list(b, "crumble"))
         }
         val st = m["starThresholds"] as? Map<String, Any?>
         return LevelData(
@@ -113,6 +118,27 @@ object LevelParser {
             shadow = board(m["shadow"]),
             starThresholds = StarThresholds(int(st, "threeStarsMaxMoves", 0), int(st, "twoStarsMaxMoves", 0), int(st, "oneStarMaxMoves", 0))
         )
+    }
+
+    fun toJson(l: LevelData, solution: List<Direction>?): String {
+        fun p(g: GridPos) = "{\"x\": ${g.x}, \"y\": ${g.y}}"
+        fun arr(xs: List<GridPos>) = xs.joinToString(", ", "[", "]") { p(it) }
+        fun board(b: BoardData) = buildString {
+            append("{\n    \"start\": ${p(b.start)},\n    \"exit\": ${p(b.exit)},\n    \"walls\": ${arr(b.walls)}")
+            if (b.cores.isNotEmpty()) append(",\n    \"cores\": ${arr(b.cores)}")
+            if (b.portals.isNotEmpty()) append(",\n    \"portals\": " + b.portals.joinToString(", ", "[", "]") { "{\"a\": ${p(it.first)}, \"b\": ${p(it.second)}}" })
+            if (b.switches.isNotEmpty()) append(",\n    \"switches\": ${arr(b.switches)}")
+            if (b.gates.isNotEmpty()) append(",\n    \"gates\": ${arr(b.gates)}")
+            if (b.crumble.isNotEmpty()) append(",\n    \"crumble\": ${arr(b.crumble)}")
+            append("\n  }")
+        }
+        val t = l.starThresholds
+        val hint = l.hint.replace("\\", "\\\\").replace("\"", "\\\"")
+        val sol = solution?.joinToString("") { it.name.take(1) } ?: ""
+        return "{\n  \"levelId\": ${l.levelId},\n  \"worldId\": ${l.worldId},\n  \"gridWidth\": ${l.gridWidth},\n  \"gridHeight\": ${l.gridHeight},\n" +
+            "  \"maxMoves\": ${l.maxMoves},\n  \"hint\": \"$hint\",\n  \"light\": ${board(l.light)},\n  \"shadow\": ${board(l.shadow)},\n" +
+            "  \"starThresholds\": {\"threeStarsMaxMoves\": ${t.threeStarsMaxMoves}, \"twoStarsMaxMoves\": ${t.twoStarsMaxMoves}, \"oneStarMaxMoves\": ${t.oneStarMaxMoves}},\n" +
+            "  \"_solution\": \"$sol\"\n}\n"
     }
 
     /** Sorted by world, then level number. */
@@ -188,11 +214,14 @@ class SaveData(private val kv: KeyValueStore) {
     }
 
     fun snapshot(levels: List<LevelData>): ProgressSnapshot {
-        val p = ProgressSnapshot(totalLevels = levels.size, bestDailyStreak = dailyBestStreak, dailiesCompleted = dailiesCompleted)
+        val p = ProgressSnapshot(totalLevels = levels.size, bestDailyStreak = dailyBestStreak, dailiesCompleted = dailiesCompleted, timeAttackBest = timeAttackBest)
         for (l in levels) {
             val s = stars(l)
+            val w = l.worldId.coerceIn(0, 7)
             if (l.worldId == 1) p.world1Total++
+            p.worldTotal[w]++
             if (s <= 0) continue
+            p.worldCompleted[w]++
             p.levelsCompleted++
             if (l.worldId == 1) p.world1Completed++
             if (s >= 3) p.perfectLevels++
@@ -209,6 +238,43 @@ class SaveData(private val kv: KeyValueStore) {
     var tutorialDone: Boolean get() = flag("set.tutorial", false); set(v) = kv.putInt("set.tutorial", if (v) 1 else 0)
     var musicVolume: Float get() = kv.getFloat("set.musicVol", 0.7f); set(v) = kv.putFloat("set.musicVol", v)
     var soundVolume: Float get() = kv.getFloat("set.soundVol", 0.8f); set(v) = kv.putFloat("set.soundVol", v)
+
+    // Shop: owned skins are a bit mask, skin 0 (Classic) is always owned.
+    var skin: Int get() = kv.getInt("skin", 0); set(v) = kv.putInt("skin", v)
+    fun ownsSkin(i: Int) = i == 0 || (kv.getInt("skins", 1) shr i) and 1 == 1
+    fun buySkin(i: Int, price: Int): Boolean {
+        if (ownsSkin(i)) return true
+        if (coins < price) return false
+        addCoins(-price)
+        kv.putInt("skins", kv.getInt("skins", 1) or (1 shl i))
+        return true
+    }
+    fun addHints(n: Int) = kv.putInt("hints", hints + n)
+
+    // Daily login reward: a 7-day cycle. Missing a day restarts it.
+    val loginLastDay get() = kv.getInt("login.last", 0)
+    val loginStreak get() = kv.getInt("login.streak", 0)
+    fun loginAvailable(today: Int) = loginLastDay != today
+    /** Day of the cycle (1..7) that today's reward would be. */
+    fun loginDay(today: Int): Int {
+        val last = loginLastDay
+        val streak = if (last != 0 && nextDay(last) == today) loginStreak else 0
+        return streak % 7 + 1
+    }
+    fun claimLogin(today: Int): Int {
+        if (!loginAvailable(today)) return 0
+        val day = loginDay(today)
+        val reward = Rewards.loginReward(day)
+        kv.putInt("login.streak", if (day == 1) 1 else loginStreak + 1)
+        kv.putInt("login.last", today)
+        addCoins(reward)
+        if (day == 7) addHints(2)
+        return reward
+    }
+
+    var timeAttackBest: Int get() = kv.getInt("ta.best", 0); set(v) = kv.putInt("ta.best", v)
+    fun introSeen(world: Int) = kv.getInt("intro.$world", 0) == 1
+    fun markIntro(world: Int) = kv.putInt("intro.$world", 1)
 
     companion object {
         fun nextDay(day: Int): Int {

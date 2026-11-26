@@ -1,0 +1,22 @@
+{
+  "levelId": 1,
+  "worldId": 5,
+  "gridWidth": 5,
+  "gridHeight": 5,
+  "maxMoves": 14,
+  "hint": "NEW: Crumbling tiles break after you leave them. No way back!",
+  "light": {
+    "start": {"x": 4, "y": 4},
+    "exit": {"x": 0, "y": 4},
+    "walls": [{"x": 1, "y": 1}, {"x": 0, "y": 2}, {"x": 4, "y": 2}, {"x": 2, "y": 3}, {"x": 3, "y": 4}],
+    "crumble": [{"x": 1, "y": 3}, {"x": 3, "y": 0}, {"x": 3, "y": 3}, {"x": 0, "y": 1}]
+  },
+  "shadow": {
+    "start": {"x": 0, "y": 2},
+    "exit": {"x": 4, "y": 2},
+    "walls": [{"x": 1, "y": 0}],
+    "crumble": [{"x": 1, "y": 3}, {"x": 1, "y": 2}]
+  },
+  "starThresholds": {"threeStarsMaxMoves": 8, "twoStarsMaxMoves": 10, "oneStarMaxMoves": 14},
+  "_solution": "ULULLDDL"
+}

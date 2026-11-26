@@ -51,6 +51,14 @@ class Ui(private val mainFont: Typeface, val logoFont: Typeface) {
     private var cx = 0f
     private var cy = 0f
     var time = 0f
+    /** Half of the visible height in world units (8.6 on a 16:9 phone, more on taller phones). */
+    var halfH = 8.6f; private set
+    var halfW = 4.75f; private set
+    private var shakeLeft = 0f
+    private var shakeAmp = 0f
+    private var shakeX = 0f
+    private var shakeY = 0f
+    val particles = Particles()
 
     class Hit(val l: Float, val b: Float, val r: Float, val t: Float, val id: String, val onTap: (() -> Unit)?, val onDrag: ((Float) -> Unit)?) {
         fun contains(x: Float, y: Float) = x in l..r && y in b..t
@@ -74,12 +82,27 @@ class Ui(private val mainFont: Typeface, val logoFont: Typeface) {
         ppu = min(w / 9.5f, h / 17.2f)
         cx = w / 2f
         cy = h / 2f
+        halfH = h / ppu / 2f
+        halfW = w / ppu / 2f
         hits.clear()
         c.drawColor(Neon.BG)
     }
 
-    fun sx(x: Float) = cx + x * ppu
-    fun sy(y: Float) = cy - y * ppu
+    /** Called once per frame before drawing, with the frame time. */
+    fun tick(dt: Float) {
+        if (shakeLeft > 0f) {
+            shakeLeft -= dt
+            val a = shakeAmp * (shakeLeft.coerceAtLeast(0f) / 0.25f)
+            shakeX = (Math.random().toFloat() - 0.5f) * 2f * a
+            shakeY = (Math.random().toFloat() - 0.5f) * 2f * a
+        } else { shakeX = 0f; shakeY = 0f }
+        particles.update(dt)
+    }
+
+    fun shake(amount: Float = 0.12f) { shakeLeft = 0.25f; shakeAmp = amount }
+
+    fun sx(x: Float) = cx + (x + shakeX) * ppu
+    fun sy(y: Float) = cy - (y + shakeY) * ppu
     fun toWorldX(px: Float) = (px - cx) / ppu
     fun toWorldY(py: Float) = (cy - py) / ppu
 
@@ -194,6 +217,17 @@ class Ui(private val mainFont: Typeface, val logoFont: Typeface) {
         canvas.drawPath(path, fill)
     }
 
+    /** Filled polygon from world-space x, y pairs. */
+    fun poly(pts: FloatArray, color: Int) {
+        path.reset()
+        for (i in pts.indices step 2) {
+            if (i == 0) path.moveTo(sx(pts[i]), sy(pts[i + 1])) else path.lineTo(sx(pts[i]), sy(pts[i + 1]))
+        }
+        path.close()
+        fill.color = color
+        canvas.drawPath(path, fill)
+    }
+
     // ---------------- Text ----------------
 
     /** height is roughly the line height in world units. Returns the text width in world units. */
@@ -232,8 +266,25 @@ class Ui(private val mainFont: Typeface, val logoFont: Typeface) {
     }
 
     fun background(a: Int, b: Int) {
-        glow(-2.5f, 4.5f, 12f, 10f, Neon.a(a, 0.16f))
-        glow(2.5f, -4.5f, 12f, 10f, Neon.a(b, 0.16f))
+        val t = time
+        glow(-2.5f + sin(t * 0.3f) * 0.8f, 4.5f + cos(t * 0.25f) * 0.6f, 12f, 10f, Neon.a(a, 0.16f))
+        glow(2.5f + cos(t * 0.27f) * 0.8f, -4.5f + sin(t * 0.31f) * 0.6f, 12f, 10f, Neon.a(b, 0.16f))
+        // Drifting neon grid.
+        val gap = 1.2f
+        val off = (t * 0.25f) % gap
+        val lineColor = Neon.a(a, 0.045f)
+        var y = -halfH - gap + off
+        while (y < halfH + gap) { line(-halfW - 1f, y, halfW + 1f, y, 0.025f, lineColor); y += gap }
+        var x = -halfW - (halfW % gap)
+        while (x < halfW + gap) { line(x, -halfH - 1f, x, halfH + 1f, 0.025f, lineColor); x += gap }
+        // Floating sparks.
+        for (i in 0 until 14) {
+            val seed = i * 97.31f
+            val px = ((seed * 13.7f) % (2 * halfW)) - halfW + sin(t * 0.4f + i) * 0.3f
+            val py = (((seed * 7.3f) + t * (0.25f + (i % 5) * 0.08f)) % (2 * halfH + 2f)) - halfH - 1f
+            val c = if (i % 2 == 0) a else b
+            circle(px, py, 0.06f + (i % 3) * 0.03f, Neon.a(c, 0.35f + 0.25f * sin(t * 2f + i)))
+        }
     }
 
     fun coins(x: Float, y: Float, height: Float, amount: Int) {
@@ -309,6 +360,8 @@ class Ui(private val mainFont: Typeface, val logoFont: Typeface) {
             onChange(((wx - (x - width / 2)) / width).coerceIn(0f, 1f))
         }
     }
+
+    fun drawParticles() = particles.draw(this)
 
     fun hitAt(x: Float, y: Float): Hit? {
         for (i in hits.indices.reversed()) if (hits[i].contains(x, y)) return hits[i]
